@@ -1,0 +1,3441 @@
+/*
+ * To change this license header, choose License Headers in Project Properties.
+ * To change this template file, choose Tools | Templates
+ * and open the template in the editor.
+ */
+package jyms;
+
+
+import com.sun.jna.NativeLong;
+import com.sun.jna.Pointer;
+import com.sun.jna.ptr.IntByReference;
+import java.awt.Component;
+import java.awt.Dimension;
+import java.awt.event.MouseEvent;
+import java.awt.event.MouseListener;
+import java.text.MessageFormat;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Vector;
+import javax.swing.ImageIcon;
+import javax.swing.JButton;
+import javax.swing.JOptionPane;
+import javax.swing.JScrollPane;
+import javax.swing.JTable;
+import javax.swing.RowFilter;
+import javax.swing.SwingUtilities;
+import javax.swing.SwingWorker;
+
+import javax.swing.table.AbstractTableModel;
+import javax.swing.table.DefaultTableModel;
+import javax.swing.table.TableCellRenderer;
+import javax.swing.table.TableColumnModel;
+import javax.swing.table.TableModel;
+import javax.swing.table.TableRowSorter;
+import javax.swing.text.Position;
+import javax.swing.tree.DefaultMutableTreeNode;
+import javax.swing.tree.DefaultTreeModel;
+import javax.swing.tree.TreePath;
+import javax.swing.tree.TreeSelectionModel;
+import jyms.data.CodesBean;
+import jyms.data.DeviceGroupBean;
+import jyms.data.DeviceParaBean;
+import jyms.tools.endecrypt.MD5Encrypt;
+import jyms.data.TxtLogger;
+import jyms.data.UsersBean;
+
+
+/**
+ *
+ * @author John
+ */
+public class JInFrameDeviceManage extends javax.swing.JInternalFrame {
+    
+    private final String sFileName = this.getClass().getName() + ".java";
+    private Sadp sadpSDK = Sadp.INSTANCE;
+
+    private String sDeviceTypeCode = null;//当前设备类型
+    private DefaultTableModel deviceOnLineTableModel;
+    private PDEVICE_FIND_CALLBACK pDEVICE_FIND_CALLBACK;// = new PDEVICE_FIND_CALLBACK();//内部类:PDEVICE_FIND_CALLBACK  *启动SADP在线设备搜索SADP_Start_V30的回调函数
+    
+    private JTableButtonModel deviceManagedTableModel;
+    private int iManaged;//已管理设备的数量
+
+    private DefaultTableModel deviceResourceTableModel;
+    private String  sGroupName = null;//当前组名
+    private String  sResourceTypeCode = null;//当前设备资源类型
+    
+    //ArrayList<DeviceParaBean> listDeviceparaBean;//已管理设备参数表的Bean列表
+    private ArrayList listDeviceDetailPara;//CommonParas.g_listDeviceDetailPara已管理设备参数表的Bean列表
+    private ArrayList<CodesBean> listDeviceCodesBean;//获取代码表中的已被使用的设备类型列表，包括“代码”,“代码名称”,“上级代码”,“备注”等参数
+    private ArrayList<CodesBean> listResourceCodesBean;//获取代码表中的设备资源类型列表，包括“代码”,“代码名称”,“上级代码”,“备注”等参数
+    private ArrayList listDeviceGroup;//设备分组表中的所有“节点名”,“别名”,“组名”,“设备资源分类”和对应的设备基本参数表中的“设备序列号”,“IP地址”等参数
+    private ArrayList listDeviceGroupNames;//获取设备分组表中的““组名”列表
+    private ArrayList<String> listNewGroupNames = new ArrayList();//存储刚添加还没有导入资源的分组名列表
+    //设备网络参数结构体列表
+    private ArrayList<Sadp.SADP_DEV_NET_PARAM_JAVA> list_SADP_DEV_NET_PARAM_JAVA;
+    
+    private Sadp.SADP_DEV_NET_PARAM_JAVA currentSadpDevNetParam = new Sadp.SADP_DEV_NET_PARAM_JAVA();
+    private RefreshDeviceWorker refreshWorker;//并发进程，刷新已管理设备和在线设备的状态
+    private RefreshDeviceManagedWorker refreshManagedWorker;
+    private RefreshDeviceOnLineWorker refreshOnLineWorker;
+    private RefreshOneDeviceManagedWorker refreshOneManagedWorker;
+    private boolean bDeviceRefreshing = false;//是否正在刷新设备状态
+      
+    
+    private int m_iTreeNodeNum;//通道树节点数目
+    private DefaultMutableTreeNode m_RootDevice;//通道树根节点
+    private DefaultMutableTreeNode m_RootResource;//通道树根节点
+    /**
+     * Creates new form JInternalFrameDeviceManage
+     */
+    public JInFrameDeviceManage() {
+
+        initComponents();
+        modifyLocales();
+        listDeviceDetailPara = CommonParas.g_listDeviceDetailPara;
+        initialFrameParas();//初始化窗体参数
+    }
+
+    /**
+	 * 函数:      initialFrameParas
+         * 函数描述:  初始化窗体的各种参数
+    */
+    private void initialFrameParas(){
+        pDEVICE_FIND_CALLBACK = new PDEVICE_FIND_CALLBACK();
+        
+        TableCellRenderer defaultRenderer;
+        defaultRenderer = jTableDeviceManaged.getDefaultRenderer(JButton.class);
+        jTableDeviceManaged.setDefaultRenderer(JButton.class, new JTableButtonRenderer(defaultRenderer));
+        jTableDeviceManaged.setPreferredScrollableViewportSize(new Dimension(400, 200));
+        jTableDeviceManaged.addMouseListener(new JTableButtonMouseListener(jTableDeviceManaged));
+        
+
+        list_SADP_DEV_NET_PARAM_JAVA = CommonParas.g_list_SADP_DEV_NET_PARAM_JAVA;
+        jSplitPaneTreeDVR.setDividerLocation(260);
+        jSplitPaneTreeDVRResource.setDividerLocation(260);
+ 
+        jyms.tools.TreeUtil.modifyTreeCellRenderer(jTreeDevice);
+        jyms.tools.TreeUtil.modifyTreeCellRenderer(jTreeResource);
+        
+        CommonParas.setJButtonUnDecorated(jButtonExit2);
+
+    }
+    /**
+     * This method is called from within the constructor to initialize the form.
+     * WARNING: Do NOT modify this code. The content of this method is always
+     * regenerated by the Form Editor.
+     */
+    @SuppressWarnings("unchecked")
+    // <editor-fold defaultstate="collapsed" desc="Generated Code">//GEN-BEGIN:initComponents
+    private void initComponents() {
+
+        jDialogDVRPassModify = new javax.swing.JDialog();
+        jPanelFirst = new javax.swing.JPanel();
+        jLabelTitle = new javax.swing.JLabel();
+        jButtonExit2 = new javax.swing.JButton();
+        jPanelCenter = new javax.swing.JPanel();
+        jLabelNewPassword2 = new javax.swing.JLabel();
+        jLabelOriginalPassword = new javax.swing.JLabel();
+        jPasswordFieldOld = new javax.swing.JPasswordField();
+        jPasswordFieldNew2 = new javax.swing.JPasswordField();
+        jPasswordFieldNew1 = new javax.swing.JPasswordField();
+        jLabelNewPassword = new javax.swing.JLabel();
+        jLabelAdminPassword = new javax.swing.JLabel();
+        jPasswordFieldSysAdmin = new javax.swing.JPasswordField();
+        jPanelLast = new javax.swing.JPanel();
+        jButtonOk = new javax.swing.JButton();
+        jButtonCancel = new javax.swing.JButton();
+        jTabbedPaneDVR = new javax.swing.JTabbedPane();
+        jSplitPaneTreeDVR = new javax.swing.JSplitPane();
+        jPanel3 = new javax.swing.JPanel();
+        jPanel10 = new javax.swing.JPanel();
+        jLabelDevice = new javax.swing.JLabel();
+        jButtonInsertDeviceType = new javax.swing.JButton();
+        jButtonDeleteDeviceType = new javax.swing.JButton();
+        jScrollPaneTreeDevice = new javax.swing.JScrollPane();
+        jTreeDevice = new javax.swing.JTree();
+        jSplitPaneDVRs = new javax.swing.JSplitPane();
+        jPanel4 = new javax.swing.JPanel();
+        jPanel7 = new javax.swing.JPanel();
+        jLabelManaged = new javax.swing.JLabel();
+        jButtonRegisterDevice = new javax.swing.JButton();
+        jButtonDeleteManaged = new javax.swing.JButton();
+        jButtonModify = new javax.swing.JButton();
+        jButtonManagedRefresh = new javax.swing.JButton();
+        jButtonExit = new javax.swing.JButton();
+        jTextFieldFilterManaged = new javax.swing.JTextField();
+        jScrollPaneMagaged = new javax.swing.JScrollPane();
+        jTableDeviceManaged = new javax.swing.JTable();
+        jPanel5 = new javax.swing.JPanel();
+        jPanel8 = new javax.swing.JPanel();
+        jLabelOnLine = new javax.swing.JLabel();
+        jButtonInsertMagaged = new javax.swing.JButton();
+        jButtonModifyOnLine = new javax.swing.JButton();
+        jButtonModifyPass = new javax.swing.JButton();
+        jButtonActive = new javax.swing.JButton();
+        jButtonOnLineRefresh = new javax.swing.JButton();
+        jTextFieldFilterOnLine = new javax.swing.JTextField();
+        jScrollPaneOnLine = new javax.swing.JScrollPane();
+        jTableDeviceOnLine = new javax.swing.JTable();
+        jSplitPaneTreeDVRResource = new javax.swing.JSplitPane();
+        jPanel2 = new javax.swing.JPanel();
+        jPanel9 = new javax.swing.JPanel();
+        jLabelResouce = new javax.swing.JLabel();
+        jButtonGroupInsert = new javax.swing.JButton();
+        jButtonGroupDelete = new javax.swing.JButton();
+        jScrollPaneTreeResource = new javax.swing.JScrollPane();
+        jTreeResource = new javax.swing.JTree();
+        jPanel1 = new javax.swing.JPanel();
+        jScrollPaneResource = new javax.swing.JScrollPane();
+        jTableDeviceResource = new javax.swing.JTable();
+        jPanel6 = new javax.swing.JPanel();
+        jButtonImport = new javax.swing.JButton();
+        jButtonDelteteResource = new javax.swing.JButton();
+        jTextFieldFilterResource = new javax.swing.JTextField();
+        jButtonExit1 = new javax.swing.JButton();
+
+        jDialogDVRPassModify.setTitle("设备管理员密码修改");
+        jDialogDVRPassModify.setMinimumSize(new java.awt.Dimension(553, 337));
+        jDialogDVRPassModify.setModalityType(java.awt.Dialog.ModalityType.APPLICATION_MODAL);
+        jDialogDVRPassModify.setUndecorated(true);
+        jDialogDVRPassModify.setResizable(false);
+
+        jLabelTitle.setFont(new java.awt.Font("微软雅黑", 1, 18)); // NOI18N
+        jLabelTitle.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
+        jLabelTitle.setText("设备管理员密码修改");
+
+        jButtonExit2.setIcon(new javax.swing.ImageIcon(getClass().getResource("/jyms/image/close.png"))); // NOI18N
+        jButtonExit2.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                jButtonExit2ActionPerformed(evt);
+            }
+        });
+
+        javax.swing.GroupLayout jPanelFirstLayout = new javax.swing.GroupLayout(jPanelFirst);
+        jPanelFirst.setLayout(jPanelFirstLayout);
+        jPanelFirstLayout.setHorizontalGroup(
+            jPanelFirstLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, jPanelFirstLayout.createSequentialGroup()
+                .addComponent(jLabelTitle, javax.swing.GroupLayout.DEFAULT_SIZE, 496, Short.MAX_VALUE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(jButtonExit2, javax.swing.GroupLayout.PREFERRED_SIZE, 23, javax.swing.GroupLayout.PREFERRED_SIZE))
+        );
+        jPanelFirstLayout.setVerticalGroup(
+            jPanelFirstLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(jPanelFirstLayout.createSequentialGroup()
+                .addComponent(jButtonExit2, javax.swing.GroupLayout.PREFERRED_SIZE, 23, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addContainerGap(34, Short.MAX_VALUE))
+            .addComponent(jLabelTitle, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+        );
+
+        jDialogDVRPassModify.getContentPane().add(jPanelFirst, java.awt.BorderLayout.PAGE_START);
+
+        jLabelNewPassword2.setFont(new java.awt.Font("微软雅黑", 0, 16)); // NOI18N
+        jLabelNewPassword2.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
+        jLabelNewPassword2.setText("新密码确认：");
+
+        jLabelOriginalPassword.setFont(new java.awt.Font("微软雅黑", 0, 16)); // NOI18N
+        jLabelOriginalPassword.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
+        jLabelOriginalPassword.setText("请输入原密码：");
+
+        jPasswordFieldOld.setFont(new java.awt.Font("微软雅黑", 0, 16)); // NOI18N
+
+        jPasswordFieldNew2.setFont(new java.awt.Font("微软雅黑", 0, 16)); // NOI18N
+
+        jPasswordFieldNew1.setFont(new java.awt.Font("微软雅黑", 0, 16)); // NOI18N
+
+        jLabelNewPassword.setFont(new java.awt.Font("微软雅黑", 0, 16)); // NOI18N
+        jLabelNewPassword.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
+        jLabelNewPassword.setText("请输入新密码：");
+
+        jLabelAdminPassword.setFont(new java.awt.Font("微软雅黑", 0, 16)); // NOI18N
+        jLabelAdminPassword.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
+        jLabelAdminPassword.setText("系统超级管理员密码：");
+
+        javax.swing.GroupLayout jPanelCenterLayout = new javax.swing.GroupLayout(jPanelCenter);
+        jPanelCenter.setLayout(jPanelCenterLayout);
+        jPanelCenterLayout.setHorizontalGroup(
+            jPanelCenterLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, jPanelCenterLayout.createSequentialGroup()
+                .addContainerGap(53, Short.MAX_VALUE)
+                .addGroup(jPanelCenterLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING, false)
+                    .addGroup(jPanelCenterLayout.createSequentialGroup()
+                        .addComponent(jLabelOriginalPassword, javax.swing.GroupLayout.DEFAULT_SIZE, 156, Short.MAX_VALUE)
+                        .addGap(18, 18, 18)
+                        .addComponent(jPasswordFieldOld, javax.swing.GroupLayout.PREFERRED_SIZE, 223, javax.swing.GroupLayout.PREFERRED_SIZE))
+                    .addGroup(jPanelCenterLayout.createSequentialGroup()
+                        .addGroup(jPanelCenterLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING, false)
+                            .addComponent(jLabelAdminPassword, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                            .addComponent(jLabelNewPassword2, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                            .addComponent(jLabelNewPassword, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                        .addGroup(jPanelCenterLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
+                            .addComponent(jPasswordFieldSysAdmin, javax.swing.GroupLayout.Alignment.TRAILING)
+                            .addComponent(jPasswordFieldNew2, javax.swing.GroupLayout.Alignment.TRAILING)
+                            .addComponent(jPasswordFieldNew1, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, 223, Short.MAX_VALUE))))
+                .addGap(75, 75, 75))
+        );
+        jPanelCenterLayout.setVerticalGroup(
+            jPanelCenterLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, jPanelCenterLayout.createSequentialGroup()
+                .addContainerGap()
+                .addGroup(jPanelCenterLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(jPasswordFieldOld, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addComponent(jLabelOriginalPassword, javax.swing.GroupLayout.PREFERRED_SIZE, 28, javax.swing.GroupLayout.PREFERRED_SIZE))
+                .addGap(18, 18, 18)
+                .addGroup(jPanelCenterLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(jPasswordFieldNew1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addComponent(jLabelNewPassword, javax.swing.GroupLayout.PREFERRED_SIZE, 28, javax.swing.GroupLayout.PREFERRED_SIZE))
+                .addGap(18, 18, Short.MAX_VALUE)
+                .addGroup(jPanelCenterLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(jPasswordFieldNew2, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addComponent(jLabelNewPassword2, javax.swing.GroupLayout.PREFERRED_SIZE, 28, javax.swing.GroupLayout.PREFERRED_SIZE))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                .addGroup(jPanelCenterLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(jLabelAdminPassword, javax.swing.GroupLayout.DEFAULT_SIZE, 36, Short.MAX_VALUE)
+                    .addComponent(jPasswordFieldSysAdmin, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                .addGap(26, 26, 26))
+        );
+
+        jPanelCenterLayout.linkSize(javax.swing.SwingConstants.VERTICAL, new java.awt.Component[] {jLabelAdminPassword, jLabelNewPassword, jLabelNewPassword2, jLabelOriginalPassword, jPasswordFieldNew1, jPasswordFieldNew2, jPasswordFieldOld, jPasswordFieldSysAdmin});
+
+        jDialogDVRPassModify.getContentPane().add(jPanelCenter, java.awt.BorderLayout.CENTER);
+
+        jButtonOk.setFont(new java.awt.Font("微软雅黑", 0, 16)); // NOI18N
+        jButtonOk.setIcon(new javax.swing.ImageIcon(getClass().getResource("/jyms/image/ok.png"))); // NOI18N
+        jButtonOk.setText("确  定");
+        jButtonOk.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                jButtonOkActionPerformed(evt);
+            }
+        });
+
+        jButtonCancel.setFont(new java.awt.Font("微软雅黑", 0, 16)); // NOI18N
+        jButtonCancel.setIcon(new javax.swing.ImageIcon(getClass().getResource("/jyms/image/cancel.png"))); // NOI18N
+        jButtonCancel.setText("取  消");
+        jButtonCancel.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                jButtonCancelActionPerformed(evt);
+            }
+        });
+
+        javax.swing.GroupLayout jPanelLastLayout = new javax.swing.GroupLayout(jPanelLast);
+        jPanelLast.setLayout(jPanelLastLayout);
+        jPanelLastLayout.setHorizontalGroup(
+            jPanelLastLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, jPanelLastLayout.createSequentialGroup()
+                .addGap(0, 214, Short.MAX_VALUE)
+                .addComponent(jButtonOk, javax.swing.GroupLayout.PREFERRED_SIZE, 109, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addGap(18, 18, 18)
+                .addComponent(jButtonCancel, javax.swing.GroupLayout.PREFERRED_SIZE, 113, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addGap(71, 71, 71))
+        );
+        jPanelLastLayout.setVerticalGroup(
+            jPanelLastLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(jPanelLastLayout.createSequentialGroup()
+                .addContainerGap()
+                .addGroup(jPanelLastLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(jButtonCancel)
+                    .addComponent(jButtonOk))
+                .addContainerGap(22, Short.MAX_VALUE))
+        );
+
+        jDialogDVRPassModify.getContentPane().add(jPanelLast, java.awt.BorderLayout.PAGE_END);
+
+        setBackground(new java.awt.Color(64, 64, 64));
+        setForeground(java.awt.Color.white);
+        setTitle("设备管理");
+        addInternalFrameListener(new javax.swing.event.InternalFrameListener() {
+            public void internalFrameActivated(javax.swing.event.InternalFrameEvent evt) {
+            }
+            public void internalFrameClosed(javax.swing.event.InternalFrameEvent evt) {
+            }
+            public void internalFrameClosing(javax.swing.event.InternalFrameEvent evt) {
+                formInternalFrameClosing(evt);
+            }
+            public void internalFrameDeactivated(javax.swing.event.InternalFrameEvent evt) {
+            }
+            public void internalFrameDeiconified(javax.swing.event.InternalFrameEvent evt) {
+            }
+            public void internalFrameIconified(javax.swing.event.InternalFrameEvent evt) {
+            }
+            public void internalFrameOpened(javax.swing.event.InternalFrameEvent evt) {
+                formInternalFrameOpened(evt);
+            }
+        });
+
+        jTabbedPaneDVR.setBackground(new java.awt.Color(64, 64, 64));
+        jTabbedPaneDVR.setForeground(new java.awt.Color(255, 255, 255));
+        jTabbedPaneDVR.setFont(new java.awt.Font("微软雅黑", 0, 18)); // NOI18N
+
+        jPanel3.setBackground(new java.awt.Color(204, 204, 204));
+        jPanel3.setLayout(new java.awt.BorderLayout());
+
+        jPanel10.setBackground(new java.awt.Color(151, 151, 151));
+        jPanel10.setForeground(new java.awt.Color(255, 255, 255));
+
+        jLabelDevice.setFont(new java.awt.Font("微软雅黑", 1, 16)); // NOI18N
+        jLabelDevice.setForeground(new java.awt.Color(102, 0, 0));
+        jLabelDevice.setText("  设 备");
+
+        jButtonInsertDeviceType.setBackground(new java.awt.Color(64, 64, 64));
+        jButtonInsertDeviceType.setFont(new java.awt.Font("微软雅黑", 0, 16)); // NOI18N
+        jButtonInsertDeviceType.setForeground(new java.awt.Color(255, 255, 255));
+        jButtonInsertDeviceType.setIcon(new javax.swing.ImageIcon(getClass().getResource("/jyms/image/add2.png"))); // NOI18N
+        jButtonInsertDeviceType.setText("添加");
+        jButtonInsertDeviceType.setToolTipText("添加设备类型");
+        jButtonInsertDeviceType.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                jButtonInsertDeviceTypeActionPerformed(evt);
+            }
+        });
+
+        jButtonDeleteDeviceType.setBackground(new java.awt.Color(64, 64, 64));
+        jButtonDeleteDeviceType.setFont(new java.awt.Font("微软雅黑", 0, 16)); // NOI18N
+        jButtonDeleteDeviceType.setForeground(new java.awt.Color(255, 255, 255));
+        jButtonDeleteDeviceType.setIcon(new javax.swing.ImageIcon(getClass().getResource("/jyms/image/delete2.png"))); // NOI18N
+        jButtonDeleteDeviceType.setText("删除");
+        jButtonDeleteDeviceType.setToolTipText("删除设备类型");
+        jButtonDeleteDeviceType.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                jButtonDeleteDeviceTypeActionPerformed(evt);
+            }
+        });
+
+        javax.swing.GroupLayout jPanel10Layout = new javax.swing.GroupLayout(jPanel10);
+        jPanel10.setLayout(jPanel10Layout);
+        jPanel10Layout.setHorizontalGroup(
+            jPanel10Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, jPanel10Layout.createSequentialGroup()
+                .addComponent(jLabelDevice, javax.swing.GroupLayout.DEFAULT_SIZE, 49, Short.MAX_VALUE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(jButtonInsertDeviceType)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(jButtonDeleteDeviceType))
+        );
+        jPanel10Layout.setVerticalGroup(
+            jPanel10Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, jPanel10Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                .addComponent(jButtonDeleteDeviceType)
+                .addComponent(jButtonInsertDeviceType))
+            .addComponent(jLabelDevice, javax.swing.GroupLayout.PREFERRED_SIZE, 31, javax.swing.GroupLayout.PREFERRED_SIZE)
+        );
+
+        jPanel3.add(jPanel10, java.awt.BorderLayout.PAGE_START);
+
+        jScrollPaneTreeDevice.setBackground(new java.awt.Color(64, 64, 64));
+        jScrollPaneTreeDevice.setForeground(new java.awt.Color(255, 255, 255));
+
+        jTreeDevice.setBackground(new java.awt.Color(64, 64, 64));
+        jTreeDevice.setForeground(new java.awt.Color(255, 255, 255));
+        jTreeDevice.setModel(this.initialDeviceTreeModel());
+        jTreeDevice.setRootVisible(false);
+        jScrollPaneTreeDevice.setViewportView(jTreeDevice);
+
+        jPanel3.add(jScrollPaneTreeDevice, java.awt.BorderLayout.CENTER);
+
+        jSplitPaneTreeDVR.setLeftComponent(jPanel3);
+
+        jSplitPaneDVRs.setBackground(new java.awt.Color(64, 64, 64));
+        jSplitPaneDVRs.setBorder(null);
+        jSplitPaneDVRs.setForeground(new java.awt.Color(255, 255, 255));
+        jSplitPaneDVRs.setOrientation(javax.swing.JSplitPane.VERTICAL_SPLIT);
+
+        jPanel4.setBackground(new java.awt.Color(64, 64, 64));
+        jPanel4.setForeground(new java.awt.Color(255, 255, 255));
+        jPanel4.setLayout(new java.awt.BorderLayout());
+
+        jPanel7.setBackground(new java.awt.Color(151, 151, 151));
+        jPanel7.setForeground(new java.awt.Color(255, 255, 255));
+
+        jLabelManaged.setFont(new java.awt.Font("微软雅黑", 0, 16)); // NOI18N
+        jLabelManaged.setForeground(new java.awt.Color(255, 255, 255));
+        jLabelManaged.setText("管理设备(0)");
+
+        jButtonRegisterDevice.setBackground(new java.awt.Color(64, 64, 64));
+        jButtonRegisterDevice.setFont(new java.awt.Font("微软雅黑", 0, 16)); // NOI18N
+        jButtonRegisterDevice.setForeground(new java.awt.Color(255, 255, 255));
+        jButtonRegisterDevice.setIcon(new javax.swing.ImageIcon(getClass().getResource("/jyms/image/devregedit.png"))); // NOI18N
+        jButtonRegisterDevice.setText("注册设备");
+        jButtonRegisterDevice.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                jButtonRegisterDeviceActionPerformed(evt);
+            }
+        });
+
+        jButtonDeleteManaged.setBackground(new java.awt.Color(64, 64, 64));
+        jButtonDeleteManaged.setFont(new java.awt.Font("微软雅黑", 0, 16)); // NOI18N
+        jButtonDeleteManaged.setForeground(new java.awt.Color(255, 255, 255));
+        jButtonDeleteManaged.setIcon(new javax.swing.ImageIcon(getClass().getResource("/jyms/image/delete.png"))); // NOI18N
+        jButtonDeleteManaged.setText("删除");
+        jButtonDeleteManaged.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                jButtonDeleteManagedActionPerformed(evt);
+            }
+        });
+
+        jButtonModify.setBackground(new java.awt.Color(64, 64, 64));
+        jButtonModify.setFont(new java.awt.Font("微软雅黑", 0, 16)); // NOI18N
+        jButtonModify.setForeground(new java.awt.Color(255, 255, 255));
+        jButtonModify.setIcon(new javax.swing.ImageIcon(getClass().getResource("/jyms/image/modify.png"))); // NOI18N
+        jButtonModify.setText("修改");
+        jButtonModify.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                jButtonModifyActionPerformed(evt);
+            }
+        });
+
+        jButtonManagedRefresh.setBackground(new java.awt.Color(64, 64, 64));
+        jButtonManagedRefresh.setFont(new java.awt.Font("微软雅黑", 0, 16)); // NOI18N
+        jButtonManagedRefresh.setForeground(new java.awt.Color(255, 255, 255));
+        jButtonManagedRefresh.setIcon(new javax.swing.ImageIcon(getClass().getResource("/jyms/image/refreshall.png"))); // NOI18N
+        jButtonManagedRefresh.setText("刷新所有设备");
+        jButtonManagedRefresh.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                jButtonManagedRefreshActionPerformed(evt);
+            }
+        });
+
+        jButtonExit.setBackground(new java.awt.Color(64, 64, 64));
+        jButtonExit.setFont(new java.awt.Font("微软雅黑", 0, 16)); // NOI18N
+        jButtonExit.setForeground(new java.awt.Color(255, 255, 255));
+        jButtonExit.setIcon(new javax.swing.ImageIcon(getClass().getResource("/jyms/image/exit.png"))); // NOI18N
+        jButtonExit.setText("退出");
+        jButtonExit.setToolTipText("");
+        jButtonExit.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                jButtonExitActionPerformed(evt);
+            }
+        });
+
+        jTextFieldFilterManaged.setBackground(new java.awt.Color(64, 64, 64));
+        jTextFieldFilterManaged.setFont(new java.awt.Font("微软雅黑", 0, 16)); // NOI18N
+        jTextFieldFilterManaged.setForeground(new java.awt.Color(255, 255, 255));
+        jTextFieldFilterManaged.setText("过滤");
+        jTextFieldFilterManaged.addFocusListener(new java.awt.event.FocusAdapter() {
+            public void focusGained(java.awt.event.FocusEvent evt) {
+                jTextFieldFilterManagedFocusGained(evt);
+            }
+            public void focusLost(java.awt.event.FocusEvent evt) {
+                jTextFieldFilterManagedFocusLost(evt);
+            }
+        });
+        jTextFieldFilterManaged.addKeyListener(new java.awt.event.KeyAdapter() {
+            public void keyTyped(java.awt.event.KeyEvent evt) {
+                jTextFieldFilterManagedKeyTyped(evt);
+            }
+        });
+
+        javax.swing.GroupLayout jPanel7Layout = new javax.swing.GroupLayout(jPanel7);
+        jPanel7.setLayout(jPanel7Layout);
+        jPanel7Layout.setHorizontalGroup(
+            jPanel7Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(jPanel7Layout.createSequentialGroup()
+                .addContainerGap()
+                .addComponent(jLabelManaged, javax.swing.GroupLayout.PREFERRED_SIZE, 180, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 445, Short.MAX_VALUE)
+                .addComponent(jTextFieldFilterManaged, javax.swing.GroupLayout.PREFERRED_SIZE, 235, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(jButtonRegisterDevice)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(jButtonDeleteManaged)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(jButtonModify)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(jButtonManagedRefresh)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(jButtonExit)
+                .addContainerGap())
+        );
+        jPanel7Layout.setVerticalGroup(
+            jPanel7Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(jPanel7Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                .addComponent(jLabelManaged, javax.swing.GroupLayout.PREFERRED_SIZE, 32, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addComponent(jButtonModify)
+                .addComponent(jButtonDeleteManaged)
+                .addComponent(jButtonManagedRefresh)
+                .addComponent(jButtonRegisterDevice)
+                .addComponent(jButtonExit)
+                .addComponent(jTextFieldFilterManaged, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+        );
+
+        jPanel4.add(jPanel7, java.awt.BorderLayout.PAGE_START);
+
+        jScrollPaneMagaged.setBackground(new java.awt.Color(64, 64, 64));
+        jScrollPaneMagaged.setForeground(new java.awt.Color(255, 255, 255));
+        jScrollPaneMagaged.setOpaque(false);
+
+        jTableDeviceManaged.setBackground(new java.awt.Color(64, 64, 64));
+        jTableDeviceManaged.setForeground(new java.awt.Color(255, 255, 255));
+        jTableDeviceManaged.setGridColor(new java.awt.Color(64, 64, 64));
+        jTableDeviceManaged.setOpaque(false);
+        jTableDeviceManaged.setSelectionMode(javax.swing.ListSelectionModel.SINGLE_SELECTION);
+        jTableDeviceManaged.getTableHeader().setReorderingAllowed(false);
+        jScrollPaneMagaged.setViewportView(jTableDeviceManaged);
+
+        jPanel4.add(jScrollPaneMagaged, java.awt.BorderLayout.CENTER);
+
+        jSplitPaneDVRs.setLeftComponent(jPanel4);
+
+        jPanel5.setBackground(new java.awt.Color(64, 64, 64));
+        jPanel5.setForeground(new java.awt.Color(255, 255, 255));
+        jPanel5.setLayout(new java.awt.BorderLayout());
+
+        jPanel8.setBackground(new java.awt.Color(151, 151, 151));
+        jPanel8.setForeground(new java.awt.Color(255, 255, 255));
+
+        jLabelOnLine.setFont(new java.awt.Font("微软雅黑", 0, 16)); // NOI18N
+        jLabelOnLine.setForeground(new java.awt.Color(255, 255, 255));
+        jLabelOnLine.setText("在线设备(0)");
+
+        jButtonInsertMagaged.setBackground(new java.awt.Color(64, 64, 64));
+        jButtonInsertMagaged.setFont(new java.awt.Font("微软雅黑", 0, 16)); // NOI18N
+        jButtonInsertMagaged.setForeground(new java.awt.Color(255, 255, 255));
+        jButtonInsertMagaged.setIcon(new javax.swing.ImageIcon(getClass().getResource("/jyms/image/devadd.png"))); // NOI18N
+        jButtonInsertMagaged.setText("注册管理");
+        jButtonInsertMagaged.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                jButtonInsertMagagedActionPerformed(evt);
+            }
+        });
+
+        jButtonModifyOnLine.setBackground(new java.awt.Color(64, 64, 64));
+        jButtonModifyOnLine.setFont(new java.awt.Font("微软雅黑", 0, 16)); // NOI18N
+        jButtonModifyOnLine.setForeground(new java.awt.Color(255, 255, 255));
+        jButtonModifyOnLine.setIcon(new javax.swing.ImageIcon(getClass().getResource("/jyms/image/devmodifyline.png"))); // NOI18N
+        jButtonModifyOnLine.setText("修改");
+        jButtonModifyOnLine.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                jButtonModifyOnLineActionPerformed(evt);
+            }
+        });
+
+        jButtonModifyPass.setBackground(new java.awt.Color(64, 64, 64));
+        jButtonModifyPass.setFont(new java.awt.Font("微软雅黑", 0, 16)); // NOI18N
+        jButtonModifyPass.setForeground(new java.awt.Color(255, 255, 255));
+        jButtonModifyPass.setIcon(new javax.swing.ImageIcon(getClass().getResource("/jyms/image/modifypassword16.png"))); // NOI18N
+        jButtonModifyPass.setText("密码修改");
+        jButtonModifyPass.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                jButtonModifyPassActionPerformed(evt);
+            }
+        });
+
+        jButtonActive.setBackground(new java.awt.Color(64, 64, 64));
+        jButtonActive.setFont(new java.awt.Font("微软雅黑", 0, 16)); // NOI18N
+        jButtonActive.setForeground(new java.awt.Color(255, 255, 255));
+        jButtonActive.setIcon(new javax.swing.ImageIcon(getClass().getResource("/jyms/image/acvive.png"))); // NOI18N
+        jButtonActive.setText("激活");
+        jButtonActive.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                jButtonActiveActionPerformed(evt);
+            }
+        });
+
+        jButtonOnLineRefresh.setBackground(new java.awt.Color(64, 64, 64));
+        jButtonOnLineRefresh.setFont(new java.awt.Font("微软雅黑", 0, 16)); // NOI18N
+        jButtonOnLineRefresh.setForeground(new java.awt.Color(255, 255, 255));
+        jButtonOnLineRefresh.setIcon(new javax.swing.ImageIcon(getClass().getResource("/jyms/image/refresh.png"))); // NOI18N
+        jButtonOnLineRefresh.setText("刷新（每60秒自动刷新）");
+        jButtonOnLineRefresh.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                jButtonOnLineRefreshActionPerformed(evt);
+            }
+        });
+
+        jTextFieldFilterOnLine.setBackground(new java.awt.Color(64, 64, 64));
+        jTextFieldFilterOnLine.setFont(new java.awt.Font("微软雅黑", 0, 16)); // NOI18N
+        jTextFieldFilterOnLine.setForeground(new java.awt.Color(255, 255, 255));
+        jTextFieldFilterOnLine.setText("过滤");
+        jTextFieldFilterOnLine.addFocusListener(new java.awt.event.FocusAdapter() {
+            public void focusGained(java.awt.event.FocusEvent evt) {
+                jTextFieldFilterOnLineFocusGained(evt);
+            }
+            public void focusLost(java.awt.event.FocusEvent evt) {
+                jTextFieldFilterOnLineFocusLost(evt);
+            }
+        });
+        jTextFieldFilterOnLine.addKeyListener(new java.awt.event.KeyAdapter() {
+            public void keyTyped(java.awt.event.KeyEvent evt) {
+                jTextFieldFilterOnLineKeyTyped(evt);
+            }
+        });
+
+        javax.swing.GroupLayout jPanel8Layout = new javax.swing.GroupLayout(jPanel8);
+        jPanel8.setLayout(jPanel8Layout);
+        jPanel8Layout.setHorizontalGroup(
+            jPanel8Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(jPanel8Layout.createSequentialGroup()
+                .addContainerGap()
+                .addComponent(jLabelOnLine, javax.swing.GroupLayout.PREFERRED_SIZE, 146, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 340, Short.MAX_VALUE)
+                .addComponent(jTextFieldFilterOnLine, javax.swing.GroupLayout.PREFERRED_SIZE, 236, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addGap(18, 18, 18)
+                .addComponent(jButtonInsertMagaged)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                .addComponent(jButtonModifyOnLine)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                .addComponent(jButtonModifyPass)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(jButtonActive)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(jButtonOnLineRefresh)
+                .addContainerGap())
+        );
+        jPanel8Layout.setVerticalGroup(
+            jPanel8Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addComponent(jLabelOnLine, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.PREFERRED_SIZE, 27, javax.swing.GroupLayout.PREFERRED_SIZE)
+            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, jPanel8Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                .addComponent(jButtonOnLineRefresh)
+                .addComponent(jButtonActive)
+                .addComponent(jButtonModifyPass)
+                .addComponent(jButtonModifyOnLine)
+                .addComponent(jButtonInsertMagaged)
+                .addComponent(jTextFieldFilterOnLine, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+        );
+
+        jPanel5.add(jPanel8, java.awt.BorderLayout.PAGE_START);
+
+        jScrollPaneOnLine.setBackground(new java.awt.Color(64, 64, 64));
+        jScrollPaneOnLine.setForeground(new java.awt.Color(255, 255, 255));
+        jScrollPaneOnLine.setOpaque(false);
+
+        jTableDeviceOnLine.setBackground(new java.awt.Color(64, 64, 64));
+        jTableDeviceOnLine.setForeground(new java.awt.Color(255, 255, 255));
+        jTableDeviceOnLine.setGridColor(new java.awt.Color(64, 64, 64));
+        jTableDeviceOnLine.setOpaque(false);
+        jTableDeviceOnLine.setSelectionMode(javax.swing.ListSelectionModel.SINGLE_SELECTION);
+        jTableDeviceOnLine.getTableHeader().setReorderingAllowed(false);
+        jScrollPaneOnLine.setViewportView(jTableDeviceOnLine);
+
+        jPanel5.add(jScrollPaneOnLine, java.awt.BorderLayout.CENTER);
+
+        jSplitPaneDVRs.setRightComponent(jPanel5);
+
+        jSplitPaneTreeDVR.setRightComponent(jSplitPaneDVRs);
+
+        jTabbedPaneDVR.addTab("  设  备   ", new javax.swing.ImageIcon(getClass().getResource("/jyms/image/dev.png")), jSplitPaneTreeDVR); // NOI18N
+
+        jSplitPaneTreeDVRResource.setBackground(new java.awt.Color(64, 64, 64));
+
+        jPanel2.setBackground(new java.awt.Color(64, 64, 64));
+        jPanel2.setForeground(new java.awt.Color(255, 255, 255));
+        jPanel2.setLayout(new java.awt.BorderLayout());
+
+        jPanel9.setBackground(new java.awt.Color(151, 151, 151));
+        jPanel9.setForeground(new java.awt.Color(255, 255, 255));
+
+        jLabelResouce.setFont(new java.awt.Font("微软雅黑", 1, 16)); // NOI18N
+        jLabelResouce.setForeground(new java.awt.Color(102, 0, 0));
+        jLabelResouce.setText("  资 源");
+
+        jButtonGroupInsert.setBackground(new java.awt.Color(64, 64, 64));
+        jButtonGroupInsert.setFont(new java.awt.Font("微软雅黑", 0, 16)); // NOI18N
+        jButtonGroupInsert.setForeground(new java.awt.Color(255, 255, 255));
+        jButtonGroupInsert.setIcon(new javax.swing.ImageIcon(getClass().getResource("/jyms/image/add2.png"))); // NOI18N
+        jButtonGroupInsert.setText("添加");
+        jButtonGroupInsert.setToolTipText("添加分组");
+        jButtonGroupInsert.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                jButtonGroupInsertActionPerformed(evt);
+            }
+        });
+
+        jButtonGroupDelete.setBackground(new java.awt.Color(64, 64, 64));
+        jButtonGroupDelete.setFont(new java.awt.Font("微软雅黑", 0, 16)); // NOI18N
+        jButtonGroupDelete.setForeground(new java.awt.Color(255, 255, 255));
+        jButtonGroupDelete.setIcon(new javax.swing.ImageIcon(getClass().getResource("/jyms/image/delete2.png"))); // NOI18N
+        jButtonGroupDelete.setText("删除");
+        jButtonGroupDelete.setToolTipText("删除分组");
+        jButtonGroupDelete.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                jButtonGroupDeleteActionPerformed(evt);
+            }
+        });
+
+        javax.swing.GroupLayout jPanel9Layout = new javax.swing.GroupLayout(jPanel9);
+        jPanel9.setLayout(jPanel9Layout);
+        jPanel9Layout.setHorizontalGroup(
+            jPanel9Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(jPanel9Layout.createSequentialGroup()
+                .addComponent(jLabelResouce, javax.swing.GroupLayout.DEFAULT_SIZE, 54, Short.MAX_VALUE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                .addComponent(jButtonGroupInsert)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(jButtonGroupDelete))
+        );
+        jPanel9Layout.setVerticalGroup(
+            jPanel9Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(jPanel9Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                .addComponent(jLabelResouce, javax.swing.GroupLayout.PREFERRED_SIZE, 31, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addComponent(jButtonGroupInsert)
+                .addComponent(jButtonGroupDelete))
+        );
+
+        jPanel2.add(jPanel9, java.awt.BorderLayout.PAGE_START);
+
+        jScrollPaneTreeResource.setBackground(new java.awt.Color(64, 64, 64));
+        jScrollPaneTreeResource.setForeground(new java.awt.Color(255, 255, 255));
+        jScrollPaneTreeResource.setOpaque(false);
+
+        jTreeResource.setBackground(new java.awt.Color(64, 64, 64));
+        jTreeResource.setForeground(new java.awt.Color(255, 255, 255));
+        jTreeResource.setModel(this.initialResourceTreeModel());
+        jTreeResource.setOpaque(false);
+        jTreeResource.setRootVisible(false);
+        jTreeResource.addTreeSelectionListener(new javax.swing.event.TreeSelectionListener() {
+            public void valueChanged(javax.swing.event.TreeSelectionEvent evt) {
+                jTreeResourceValueChanged(evt);
+            }
+        });
+        jScrollPaneTreeResource.setViewportView(jTreeResource);
+
+        jPanel2.add(jScrollPaneTreeResource, java.awt.BorderLayout.CENTER);
+
+        jSplitPaneTreeDVRResource.setLeftComponent(jPanel2);
+
+        jPanel1.setBackground(new java.awt.Color(64, 64, 64));
+        jPanel1.setForeground(new java.awt.Color(255, 255, 255));
+        jPanel1.setLayout(new java.awt.BorderLayout());
+
+        jScrollPaneResource.setBackground(new java.awt.Color(64, 64, 64));
+        jScrollPaneResource.setForeground(new java.awt.Color(255, 255, 255));
+
+        jTableDeviceResource.setGridColor(new java.awt.Color(204, 204, 204));
+        jTableDeviceResource.setAutoCreateRowSorter(true);
+        jTableDeviceResource.setBackground(new java.awt.Color(64, 64, 64));
+        jTableDeviceResource.setForeground(new java.awt.Color(255, 255, 255));
+        jTableDeviceResource.setGridColor(new java.awt.Color(64, 64, 64));
+        jTableDeviceResource.setSelectionMode(javax.swing.ListSelectionModel.SINGLE_SELECTION);
+        jScrollPaneResource.setViewportView(jTableDeviceResource);
+
+        jPanel1.add(jScrollPaneResource, java.awt.BorderLayout.CENTER);
+
+        jPanel6.setBackground(new java.awt.Color(151, 151, 151));
+        jPanel6.setForeground(new java.awt.Color(255, 255, 255));
+
+        jButtonImport.setBackground(new java.awt.Color(64, 64, 64));
+        jButtonImport.setFont(new java.awt.Font("微软雅黑", 0, 16)); // NOI18N
+        jButtonImport.setForeground(new java.awt.Color(255, 255, 255));
+        jButtonImport.setIcon(new javax.swing.ImageIcon(getClass().getResource("/jyms/image/groupimport.png"))); // NOI18N
+        jButtonImport.setText("导入");
+        jButtonImport.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                jButtonImportActionPerformed(evt);
+            }
+        });
+
+        jButtonDelteteResource.setBackground(new java.awt.Color(64, 64, 64));
+        jButtonDelteteResource.setFont(new java.awt.Font("微软雅黑", 0, 16)); // NOI18N
+        jButtonDelteteResource.setForeground(new java.awt.Color(255, 255, 255));
+        jButtonDelteteResource.setIcon(new javax.swing.ImageIcon(getClass().getResource("/jyms/image/delete.png"))); // NOI18N
+        jButtonDelteteResource.setText("删除");
+        jButtonDelteteResource.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                jButtonDelteteResourceActionPerformed(evt);
+            }
+        });
+
+        jTextFieldFilterResource.setBackground(new java.awt.Color(64, 64, 64));
+        jTextFieldFilterResource.setFont(new java.awt.Font("微软雅黑", 0, 16)); // NOI18N
+        jTextFieldFilterResource.setForeground(new java.awt.Color(255, 255, 255));
+        jTextFieldFilterResource.setText("过滤");
+        jTextFieldFilterResource.addFocusListener(new java.awt.event.FocusAdapter() {
+            public void focusGained(java.awt.event.FocusEvent evt) {
+                jTextFieldFilterResourceFocusGained(evt);
+            }
+            public void focusLost(java.awt.event.FocusEvent evt) {
+                jTextFieldFilterResourceFocusLost(evt);
+            }
+        });
+        jTextFieldFilterResource.addKeyListener(new java.awt.event.KeyAdapter() {
+            public void keyTyped(java.awt.event.KeyEvent evt) {
+                jTextFieldFilterResourceKeyTyped(evt);
+            }
+        });
+
+        jButtonExit1.setBackground(new java.awt.Color(64, 64, 64));
+        jButtonExit1.setFont(new java.awt.Font("微软雅黑", 0, 16)); // NOI18N
+        jButtonExit1.setForeground(new java.awt.Color(255, 255, 255));
+        jButtonExit1.setIcon(new javax.swing.ImageIcon(getClass().getResource("/jyms/image/exit.png"))); // NOI18N
+        jButtonExit1.setText("退出");
+        jButtonExit1.setToolTipText("");
+        jButtonExit1.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                jButtonExit1ActionPerformed(evt);
+            }
+        });
+
+        javax.swing.GroupLayout jPanel6Layout = new javax.swing.GroupLayout(jPanel6);
+        jPanel6.setLayout(jPanel6Layout);
+        jPanel6Layout.setHorizontalGroup(
+            jPanel6Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(jPanel6Layout.createSequentialGroup()
+                .addContainerGap(920, Short.MAX_VALUE)
+                .addComponent(jTextFieldFilterResource, javax.swing.GroupLayout.PREFERRED_SIZE, 229, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(jButtonImport)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(jButtonDelteteResource)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(jButtonExit1)
+                .addContainerGap())
+        );
+        jPanel6Layout.setVerticalGroup(
+            jPanel6Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(jPanel6Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                .addComponent(jTextFieldFilterResource, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addComponent(jButtonExit1)
+                .addComponent(jButtonDelteteResource)
+                .addComponent(jButtonImport))
+        );
+
+        jPanel1.add(jPanel6, java.awt.BorderLayout.PAGE_START);
+
+        jSplitPaneTreeDVRResource.setRightComponent(jPanel1);
+
+        jTabbedPaneDVR.addTab("  分  组  ", new javax.swing.ImageIcon(getClass().getResource("/jyms/image/devgroup.png")), jSplitPaneTreeDVRResource); // NOI18N
+
+        getContentPane().add(jTabbedPaneDVR, java.awt.BorderLayout.CENTER);
+
+        pack();
+    }// </editor-fold>//GEN-END:initComponents
+
+    private void jButtonGroupInsertActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButtonGroupInsertActionPerformed
+        // TODO add your handling code here:
+        //        String GroupNaem = JOptionPane.showInputDialog(this,"创建分组。请输入分组名：");
+        try{
+            JDialogGroupInsert dialogGroupInsert = new JDialogGroupInsert(null, true);
+            //CommonParas.centerWindow(dialogGroupInsert);
+            //设置窗口显示位置
+            CommonParas.setAppropriateLocation(dialogGroupInsert, jButtonGroupInsert);
+            dialogGroupInsert.setVisible(true);
+            String GroupName = "";
+            int iState = dialogGroupInsert.getState();
+            ArrayList<String> listSerialnoReturn =  dialogGroupInsert.getListSerialnoReturn();
+            switch (iState) {
+                case 1:
+                    //产生分组，但是分组中没有任何资源，需要人工导入
+                    //将分组名写入设备资源树中
+                    //将分组名写入临时数据列表listNewGroupNames，但是下一次刷新就失去了。必须马上人工导入设备资源
+                    GroupName = dialogGroupInsert.getGroupName();
+                    listDeviceGroupNames.add(GroupName);
+                    listNewGroupNames.add(GroupName);
+                    DefaultTreeModel TreeModel = ((DefaultTreeModel) jTreeResource.getModel());//获取树模型
+                    DefaultMutableTreeNode newNode = new DefaultMutableTreeNode(GroupName);
+                    TreeModel.insertNodeInto(newNode, m_RootResource,m_RootResource.getChildCount());
+                    TreeModel.reload(newNode);
+                    //操作时间、日志类型、描述信息、设备序列号、分组名、节点名、调用的文件名
+                    CommonParas.SystemWriteLog("", CommonParas.LogType.LOG_OPER_CODE, sAddGroup, "", GroupName, "", "", "", sFileName);// "添加分组"
+                    break;
+                case 2:
+                        //产生分组，并将设备资源导入到该分组中
+                        //只需将设备资源树重新刷新一下
+                        CreateResourceTree();
+                        refreshDeviceResource(true,sGroupName,sResourceTypeCode);
+                        //操作时间、日志类型、描述信息、设备序列号、分组名、节点名、调用的文件名
+                        CommonParas.SystemWriteLog("", CommonParas.LogType.LOG_OPER_CODE, sAddGroup, "", GroupName, "",  "", "", sFileName);// "添加分组"
+                        for (int i=0;i<listSerialnoReturn.size();i++){
+                            CommonParas.SystemWriteLog("", CommonParas.LogType.LOG_OPER_CODE, sImportGroup, listSerialnoReturn.get(i), GroupName, "",
+                                                        CommonParas.DVRType.DVRTYPE_ENCODINGDVR_CODE,"", sFileName);// "导入分组"
+                        }
+                        break;
+                case 0:
+                    break;
+                default:
+                        //产生错误，需要写入日志。同时告知客户
+                        //                JOptionPane.showMessageDialog(this, "添加分组失败！");
+                        TxtLogger.append(this.sFileName, "jButtonGroupInsertActionPerformed()","系统在添加新的设备类型过程中，出现错误"
+                            + "\r\n                       各个参数值为：" + iState + ";" + GroupName +  ";");
+                        //操作时间、日志类型、描述信息、设备序列号、分组名、节点名、调用的文件名
+                        CommonParas.SystemWriteLog("", CommonParas.LogType.LOG_ERROR_CODE, "添加分组失败", "", GroupName, "",  "", "", sFileName);
+                        break;
+            }
+        }catch (Exception e){
+            TxtLogger.append(sFileName, "jButtonGroupInsertActionPerformed()","用户在将添加设备类型分组的过程中，出现错误"
+                +  "\r\n                       Exception:" + e.toString() +  ";");
+        }
+    }//GEN-LAST:event_jButtonGroupInsertActionPerformed
+
+    private void jButtonGroupDeleteActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButtonGroupDeleteActionPerformed
+        // TODO add your handling code here:
+        try{
+            TreePath TPGroupName = jTreeResource.getSelectionPath();//获取选中节点的路径
+            if (TPGroupName == null) {
+                JOptionPane.showMessageDialog(this, sSelectNeededDelGroup);// "请先选中要删除的分组！"
+                return;
+            }
+            DefaultMutableTreeNode  NewNode =(DefaultMutableTreeNode)TPGroupName.getLastPathComponent();
+            String GroupName = NewNode.toString();
+
+            int Level = NewNode.getLevel();//如果是在组名上则为1；在节点上则为2
+
+            if (Level == 1) {
+                int Count = DeviceGroupBean.getNumsOfGroup(GroupName, sFileName);
+                if (Count <0) CommonParas.showMessage(rootPane, sCanNotDelGroup, sFileName);// "无法删除该分组！"
+                else if(Count == 0){
+                    //数据库分组中没有任何资源，分组名仅仅在设备资源树中和临时数据列表listNewGroupNames中
+                    m_RootResource.remove(NewNode);
+                    DefaultTreeModel TreeModel = ((DefaultTreeModel) jTreeResource.getModel());//获取树模型
+                    TreeModel.reload();
+                    int Index = getIfExistGroupName(GroupName);
+                    if (Index > -1) listDeviceGroupNames.remove(Index);
+                    listNewGroupNames.remove(GroupName);
+                }else if(Count >0) {
+                    if ((JOptionPane.showConfirmDialog(this, sRealDelGroup,
+                        sRemind,JOptionPane.YES_NO_OPTION) == JOptionPane.NO_OPTION))   return;// "分组及分组下的资源都将被删除，真的要继续？", "提醒"
+                   
+                    int DeleteNumes = DeviceGroupBean.DeleteDeviceGroup(GroupName, sFileName);
+                    if (DeleteNumes > 0) {
+                        CreateResourceTree();
+                        refreshDeviceResource(true,sGroupName,sResourceTypeCode);
+                        CommonParas.showMessage(rootPane, sDelGroupSucc, sFileName);// "成功删除该分组！"
+                        //操作时间、日志类型、描述信息、设备序列号、分组名、节点名、调用的文件名
+                        CommonParas.SystemWriteLog("", CommonParas.LogType.LOG_OPER_CODE, sDelGroup, "", GroupName, "", "","",sFileName);// "删除分组"
+                    }else {
+                        //操作时间、日志类型、描述信息、设备序列号、分组名、节点名、调用的文件名
+                        CommonParas.SystemWriteLog("", CommonParas.LogType.LOG_ERROR_CODE, sDelGroupFail, "", GroupName, "", "","", sFileName);// "删除分组失败"
+                    }
+                }
+
+            }
+
+        }catch (Exception e){
+            TxtLogger.append(sFileName, "jButtonGroupDeleteActionPerformed()","用户在将删除设备类型分组的过程中，出现错误"
+                +  "\r\n                       Exception:" + e.toString() +  ";");
+        }
+    }//GEN-LAST:event_jButtonGroupDeleteActionPerformed
+
+    private void jButtonDeleteDeviceTypeActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButtonDeleteDeviceTypeActionPerformed
+        // TODO add your handling code here:
+        try{
+            TreePath TPDeviceTypeName = jTreeDevice.getSelectionPath();//获取选中节点的路径
+            if (TPDeviceTypeName == null) {
+                CommonParas.showMessage(rootPane, sSelectNeededDelDevTye, sFileName);// "请先选中要删除的设备类型！"
+                return;
+            }
+            String NodeName = ((DefaultMutableTreeNode)TPDeviceTypeName.getLastPathComponent()).toString();
+            String DeviceTypeCode = getDeviceTypeCode(NodeName);
+
+            int Count = DeviceParaBean.getNumsOfDVRType(DeviceTypeCode, sFileName);
+            if (Count <0) {
+                //JOptionPane.showMessageDialog(this, "无法删除该设备类型！");
+            }else if(Count == 0){
+                int SetRemarks = CodesBean.setRemarks(DeviceTypeCode,"0",this.sFileName);
+                //修改成功返回1；未作任何修改返回0；参数错误或者其他错误，返回-1
+                if (SetRemarks > 0) {
+                    CreateDeviceTree();
+                    //操作时间、日志类型、描述信息、设备序列号、分组名、节点名、接入设备序列号、接入通道、设备类型、被操作对象类型、调用的文件名
+                    CommonParas.SystemWriteLog("", CommonParas.LogType.LOG_OPER_CODE, sDelDevType, "", "", "",  "","", DeviceTypeCode,"", sFileName);// "删除设备类型"
+                }else{
+                    //                    JOptionPane.showMessageDialog(this, "删除该设备类型时出现错误！");
+                    CommonParas.SystemWriteLog("", CommonParas.LogType.LOG_ERROR_CODE, sDelDevTypeFail, "", "", "",  "","", DeviceTypeCode,"", sFileName);// "删除设备类型失败"
+                    TxtLogger.append(sFileName, "jButtonDeleteDeviceTypeActionPerformed()","用户在删除设备类型的过程中，出现错误"
+                        + "\r\n                       各个参数值为：" + NodeName + ";" + DeviceTypeCode + ";");
+                }
+            }else if(Count >0) JOptionPane.showMessageDialog(this, sDeviceOfTypeExist);// "已经存在该该类型的设备，该设备类型不能删除！"
+        }catch (Exception e){
+            TxtLogger.append(sFileName, "jButtonDeleteDeviceTypeActionPerformed()","用户在删除设备类型的过程中，出现错误"
+                +  "\r\n                       Exception:" + e.toString() +  ";");
+        }
+    }//GEN-LAST:event_jButtonDeleteDeviceTypeActionPerformed
+
+    private void jButtonInsertDeviceTypeActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButtonInsertDeviceTypeActionPerformed
+        // TODO add your handling code here:
+        try{
+            JDialogDeviceType jdialogDeviceType = new JDialogDeviceType(null, true);
+            //CommonParas.centerWindow(jdialogDeviceType);
+            //设置窗口显示位置
+            CommonParas.setAppropriateLocation(jdialogDeviceType, jButtonInsertDeviceType);
+            jdialogDeviceType.setVisible(true);
+            ArrayList<String> ListDeviceCodeName = jdialogDeviceType.getListDeviceCodeName();
+            int iState = jdialogDeviceType.getState();
+            
+            if (iState == 1){
+                CreateDeviceTree();
+                CommonParas.showMessage(rootPane, sAddDevTypeSucc, sFileName);// "成功添加新的设备类型！"
+                
+                
+                for (int i=0;i<ListDeviceCodeName.size();i++){ 
+                    //操作时间、日志类型、描述信息、设备序列号、分组名、节点名、接入设备序列号、接入通道、设备类型、被操作对象类型、调用的文件名
+                    CommonParas.SystemWriteLog("", CommonParas.LogType.LOG_OPER_CODE, sAddDevType, "", "", "",  "","", ListDeviceCodeName.get(i),"", sFileName);//"添加设备类型"
+                }
+            }else if (iState > -2 && iState < 1){
+                //ArrayList<String> ListDeviceCodeName = jdialogDeviceType.getListDeviceCodeName();
+                for (int i=0;i<ListDeviceCodeName.size();i++){
+                    //操作时间、日志类型、描述信息、设备序列号、分组名、节点名、接入设备序列号、接入通道、设备类型、被操作对象类型、调用的文件名
+                    CommonParas.SystemWriteLog("", CommonParas.LogType.LOG_ERROR_CODE, sAddDevTypeFail, "", "", "",  "","", ListDeviceCodeName.get(i),"", sFileName);// "添加设备类型失败"
+                }
+            }
+            //如果没有选择设备类型，则不做什么操作。
+        }catch (Exception e){
+            TxtLogger.append(this.sFileName, "jButtonInsertDeviceTypeActionPerformed()","系统在添加新的设备类型过程中，出现错误"
+                + "\r\n                       Exception:" + e.toString());
+        }
+    }//GEN-LAST:event_jButtonInsertDeviceTypeActionPerformed
+
+    private void jButtonExitActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButtonExitActionPerformed
+        // TODO add your handling code here:
+        doDefaultCloseAction();
+    }//GEN-LAST:event_jButtonExitActionPerformed
+
+    private void jButtonManagedRefreshActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButtonManagedRefreshActionPerformed
+        // TODO add your handling code here:
+        //刷新管理设备
+        refreshManagedWorker = new RefreshDeviceManagedWorker();
+        refreshManagedWorker.execute();
+//        try{
+//            
+//            refreshDeviceManaged();
+//            resizeTable(jScrollPaneMagaged,jTableDeviceManaged,true);
+//        }catch(Exception e)
+//        {
+//            TxtLogger.append(sFileName, "jButtonManagedRefreshActionPerformed()","系统刷新管理设备列表过程中，出现错误" +
+//                "\r\n                       Exception:" + e.toString());
+//        }
+    }//GEN-LAST:event_jButtonManagedRefreshActionPerformed
+
+    private void jButtonModifyActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButtonModifyActionPerformed
+        // TODO add your handling code here:
+        int iRow = jTableDeviceManaged.getSelectedRow();
+        if (iRow < 0 ){
+            CommonParas.showMessage(rootPane, sNotSelectedDev, sFileName);// "没有选中任何设备！"
+            return;
+        }
+        iRow = jTableDeviceManaged.convertRowIndexToModel(iRow);
+        
+        String DVRIP = (String)deviceManagedTableModel.getValueAt(iRow, 1);//设备IP
+        String ServerPort = (String)deviceManagedTableModel.getValueAt(iRow, 2);//设备端口号
+        String AnotherName = (String)deviceManagedTableModel.getValueAt(iRow, 0);//设备别名
+        String szSerialNO = (String)deviceManagedTableModel.getValueAt(iRow, 3);//序列号
+
+        /*
+        * @param iInsertOrUpdate   在该窗口进行的操作，是向数据库插入还是修改数据。0不进行数据库操作；
+        *                           1在线设备插入数据；2管理设备表插入数据；3管理设备修改数据
+        * @param sAnotherName	设备别名
+        * @param sDVRIP        设备IP
+        * @param sServerPort	设备端口号
+        * @param sUserName	设备用户名
+        * @param SerialNO 设备序列号
+        * @param DVRType 设备类型
+        */
+        JDialogManageDevice dialogLoginDevice = new JDialogManageDevice(null, true, 3, AnotherName,DVRIP,ServerPort,"",szSerialNO,sDeviceTypeCode);
+        CommonParas.centerWindow(dialogLoginDevice);
+        dialogLoginDevice.setVisible(true);
+        int iState = dialogLoginDevice.getReturnStatus();
+        try{
+            if (iState == 3){
+                deviceManagedTableModel.setValueAt(dialogLoginDevice.getAnotherName(), iRow, 0);
+                deviceManagedTableModel.setValueAt(dialogLoginDevice.getDVRIP(), iRow, 1);
+                deviceManagedTableModel.setValueAt(dialogLoginDevice.getServerPort(), iRow, 2);
+                deviceManagedTableModel.fireTableDataChanged();
+
+                getOneDeviceWorkState(deviceManagedTableModel.getRowCount()-1,dialogLoginDevice.getUserID(), dialogLoginDevice.getDeviceInfo());
+                //CommonParas.hCNetSDK.NET_DVR_Logout_V30(dialogLoginDevice.getUserID());
+                CreateResourceTree();//刷新设备资源树
+                refreshDeviceResource(true,sGroupName,sResourceTypeCode);//刷新设备资源列表
+                //refeshDeviceParaList();//刷新已管理设备参数表的Bean列表;在JDialogManageDevice窗口中已经处理过了
+
+                CommonParas.showMessage(rootPane, sModifiedDevParasSucc, sFileName);// "已成功修改了该设备管理参数！"
+                //操作时间、日志类型、描述信息、设备序列号、设备类型、调用的文件名
+                CommonParas.SystemWriteLog("", CommonParas.LogType.LOG_OPER_CODE, sModifiedDevParas, szSerialNO, CommonParas.DVRType.DVRTYPE_ENCODINGDVR_CODE, sFileName);// "修改设备管理参数"
+            }else if (iState == 0){
+                CommonParas.showMessage(rootPane, sModifiedDevParasFail, sFileName);// "修改设备管理参数失败！"
+                //操作时间、日志类型、描述信息、设备序列号、设备类型、调用的文件名
+                CommonParas.SystemWriteLog("", CommonParas.LogType.LOG_ERROR_CODE, sModifiedDevParasFail, szSerialNO, CommonParas.DVRType.DVRTYPE_ENCODINGDVR_CODE, sFileName);// "修改设备管理参数失败"
+                
+            }
+        }catch(Exception e)
+        {
+            TxtLogger.append(sFileName, "jButtonLoginDeviceActionPerformed()","系统修改设备参数过程中，出现错误" +
+                "\r\n                       Exception:" + e.toString());
+        }
+    }//GEN-LAST:event_jButtonModifyActionPerformed
+
+    private void jButtonDeleteManagedActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButtonDeleteManagedActionPerformed
+        // TODO add your handling code here:
+        try{
+            int iRow = jTableDeviceManaged.getSelectedRow();
+            if (iRow < 0 ){
+                CommonParas.showMessage(rootPane, sNotSelectedDev, sFileName);// "没有选中任何设备！"
+                return;
+            }
+            iRow = jTableDeviceManaged.convertRowIndexToModel(iRow);
+            
+            if ((JOptionPane.showConfirmDialog(this, sRealDelDev, sRemind,JOptionPane.YES_NO_OPTION) == JOptionPane.NO_OPTION)) return;
+            String SerialNO = (String)jTableDeviceManaged.getValueAt(iRow, 3);// "确定要删除该设备？" "提醒"
+            if (DeviceParaBean.DeleteManagedDevice(SerialNO, this.sFileName)){
+                deviceManagedTableModel.removeRow(iRow);
+                //            deviceManagedTableModel.fireTableDataChanged();
+                deviceManagedTableModel.fireTableRowsDeleted(iRow, iRow);
+                jTableDeviceManaged.repaint();
+                //refeshDeviceParaList();//刷新已管理设备参数表的Bean列表
+                //从g_listDeviceDetailPara列表中删除设备信息
+                CommonParas.delOneFromListDeviceDetailPara(SerialNO, sFileName);
+                refreshDeviceOnLineIfMagaged();//重新刷新在线设备列表中的的设备的是否已管理状态
+                CreateResourceTree();
+                refreshDeviceResource(true,sGroupName,sResourceTypeCode);
+                CommonParas.showMessage(sDelDevSucc, sFileName);//  "已删除选中设备！"
+                //操作时间、日志类型、描述信息、设备序列号、设备类型、调用的文件名
+                CommonParas.SystemWriteLog("", CommonParas.LogType.LOG_OPER_CODE, sDelDev, SerialNO, CommonParas.DVRType.DVRTYPE_ENCODINGDVR_CODE, sFileName);// "删除设备"
+                jLabelManaged.setText(MessageFormat.format(sManagedNums , jTableDeviceManaged.getRowCount()));//"管理设备("+  iManaged + ")"
+            }else{
+                //操作时间、日志类型、描述信息、设备序列号、设备类型、调用的文件名
+                CommonParas.SystemWriteLog("", CommonParas.LogType.LOG_ERROR_CODE, sDelDevFail, SerialNO, CommonParas.DVRType.DVRTYPE_ENCODINGDVR_CODE, sFileName);// "删除设备失败"
+            }
+        }catch(Exception e)
+        {
+            TxtLogger.append(sFileName, "jButtonDeleteManagedActionPerformed()","系统删除设备参数过程中，出现错误" +
+                "\r\n                       Exception:" + e.toString());
+        }
+    }//GEN-LAST:event_jButtonDeleteManagedActionPerformed
+
+    private void jButtonRegisterDeviceActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButtonRegisterDeviceActionPerformed
+        // TODO add your handling code here:
+
+        //打开JDialog
+        JDialogManageDevice dialogLoginDevice = new JDialogManageDevice(null, true, 2, "","","","","",sDeviceTypeCode);
+        CommonParas.centerWindow(dialogLoginDevice);
+        dialogLoginDevice.setVisible(true);
+        int iState = dialogLoginDevice.getReturnStatus();
+        try{
+            if (iState == 2){
+                Vector newRow = new Vector();
+                newRow.add(dialogLoginDevice.getAnotherName());
+                newRow.add(dialogLoginDevice.getDVRIP());
+                newRow.add(dialogLoginDevice.getServerPort());
+                newRow.add(dialogLoginDevice.getSerialNO());
+                newRow.add("");
+
+                newRow.add(CommonParas.getPasswordGrade(dialogLoginDevice.getUserName(), dialogLoginDevice.getPassword()));//安全级别：密码级别
+                newRow.add("");
+                newRow.add("");
+                newRow.add("");
+                newRow.add("");
+                newRow.add("");
+                newRow.add("");
+                JButton RefreshButton = new JButton("",new ImageIcon(getClass().getResource("/jyms/image/Refresh.jpg")));
+                        RefreshButton.setBorder(null);
+                        RefreshButton.setBorderPainted(false);
+                        RefreshButton.setContentAreaFilled(false);
+                newRow.add(RefreshButton);
+
+                deviceManagedTableModel.addRow(newRow);
+                deviceManagedTableModel.fireTableDataChanged();
+
+                getOneDeviceWorkState(deviceManagedTableModel.getRowCount()-1,dialogLoginDevice.getUserID(), dialogLoginDevice.getDeviceInfo());
+                //CommonParas.hCNetSDK.NET_DVR_Logout_V30(dialogLoginDevice.getUserID());
+                CreateResourceTree();//刷新设备资源树
+                refreshDeviceResource(true,sGroupName,sResourceTypeCode);//刷新设备资源列表
+                //refeshDeviceParaList();//刷新已管理设备参数表的Bean列表;在JDialogManageDevice窗口中已经处理过了
+
+                CommonParas.showMessage(rootPane, sRegisterDeviceSucc, sFileName);// "已成功注册该设备并添加到管理列表中！"
+                //操作时间、日志类型、描述信息、设备序列号、设备类型、调用的文件名
+                CommonParas.SystemWriteLog("",CommonParas.LogType.LOG_OPER_CODE, sRegisterDevice, dialogLoginDevice.getSerialNO(), CommonParas.DVRType.DVRTYPE_ENCODINGDVR_CODE, sFileName);// "注册设备"
+                jLabelManaged.setText(MessageFormat.format(sManagedNums , jTableDeviceManaged.getRowCount()));//"管理设备("+  iManaged + ")"
+            }else if (iState == 0){
+                //操作时间、日志类型、描述信息、设备序列号、设备类型、调用的文件名（错误日志）
+                CommonParas.SystemWriteLog("",CommonParas.LogType.LOG_ERROR_CODE, sRegisterDeviceFail, dialogLoginDevice.getSerialNO(), CommonParas.DVRType.DVRTYPE_ENCODINGDVR_CODE, sFileName);// "注册设备失败"
+                CommonParas.showMessage(rootPane, sRegisterDeviceFail, sFileName);// "注册设备失败"
+            }
+        }catch(Exception e)
+        {
+            TxtLogger.append(sFileName, "jButtonLoginDeviceActionPerformed()","系统在添加管理设备过程中，出现错误" +
+                "\r\n                       Exception:" + e.toString());
+        }
+    }//GEN-LAST:event_jButtonRegisterDeviceActionPerformed
+
+    private void jTextFieldFilterManagedFocusGained(java.awt.event.FocusEvent evt) {//GEN-FIRST:event_jTextFieldFilterManagedFocusGained
+        // TODO add your handling code here:
+        if (jTextFieldFilterManaged.getText().equals(sFilter)){// "过滤"
+            jTextFieldFilterManaged.setText("");
+        }
+    }//GEN-LAST:event_jTextFieldFilterManagedFocusGained
+
+    private void jTextFieldFilterManagedFocusLost(java.awt.event.FocusEvent evt) {//GEN-FIRST:event_jTextFieldFilterManagedFocusLost
+        // TODO add your handling code here:
+        if (jTextFieldFilterManaged.getText().equals("")){
+            jTextFieldFilterManaged.setText(sFilter);// "过滤"
+        }
+    }//GEN-LAST:event_jTextFieldFilterManagedFocusLost
+
+    private void jTextFieldFilterManagedKeyTyped(java.awt.event.KeyEvent evt) {//GEN-FIRST:event_jTextFieldFilterManagedKeyTyped
+        // TODO add your handling code here:
+        try{
+            char c = evt.getKeyChar();
+            String sFilter = jTextFieldFilterManaged.getText().trim() + c;
+            //        TableRowSorter sorter = new TableRowSorter(deviceManagedTableModel);
+            //        sorter.setRowFilter(RowFilter.regexFilter(".*" + sFilter.trim() + ".*"));
+            //用一般的行过滤TableRowSorter过滤不了JButton（刷新），比如用Button则会过滤失败
+            //而用自定义的deviceManagedTableRowSorter则可将JButton（刷新）排除在外
+            deviceManagedTableRowSorter sorter = new deviceManagedTableRowSorter(deviceManagedTableModel,sFilter.trim());
+            sorter.setRowFilter(sorter.new myFilter());
+
+            jTableDeviceManaged.setRowSorter(sorter);
+        }catch(Exception e)
+        {
+            TxtLogger.append(sFileName, "jTextFieldFilterManagedKeyTyped()","系统在过滤设数据备过程中，出现错误" +
+                "\r\n                       Exception:" + e.toString());
+        }
+    }//GEN-LAST:event_jTextFieldFilterManagedKeyTyped
+
+    private void jButtonOnLineRefreshActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButtonOnLineRefreshActionPerformed
+        // TODO add your handling code here:
+//        sadpSDK.SADP_SendInquiry();
+        device_SADP_Stop();
+        refreshOnLineWorker = new RefreshDeviceOnLineWorker();
+        refreshOnLineWorker.execute();
+        //refreshDeviceOnLine();
+    }//GEN-LAST:event_jButtonOnLineRefreshActionPerformed
+
+    private void jButtonInsertMagagedActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButtonInsertMagagedActionPerformed
+        // TODO add your handling code here:
+        try{
+            int iRow = jTableDeviceOnLine.getSelectedRow();
+            if (iRow < 0 ){
+                CommonParas.showMessage(rootPane, sNotSelectedDev, sFileName);// "没有选中任何设备！"
+                return;
+            }
+            
+            iRow = jTableDeviceOnLine.convertRowIndexToModel(iRow);
+            
+            String sDVRIP = (String)deviceOnLineTableModel.getValueAt(iRow, 0);//设备IP
+            String sServerPort = (String)deviceOnLineTableModel.getValueAt(iRow, 4);//设备端口号
+            String sIfMagaged = (String)deviceOnLineTableModel.getValueAt(iRow, 6);//是否已管理
+            String szSerialNO = (String)deviceOnLineTableModel.getValueAt(iRow, 7);//序列号
+            if (sIfMagaged.equals(sYes)) {// "是"
+                CommonParas.showMessage(rootPane, sDevAlreadyRegistered , sFileName);//"此设备已经注册管理！"
+                return;
+            }
+
+            if (CommonParas.getIfIPConflict(sDVRIP,sFileName)) {
+                CommonParas.showMessage(rootPane, sDevAddrConflict, sFileName);// "此设备存在地址冲突！"
+                return;
+            }
+            String IfActivated = (String)deviceOnLineTableModel.getValueAt(iRow, 3);//是否已激活
+            if (IfActivated.equals(sNotActive)) {// "未激活"
+                CommonParas.showMessage(rootPane, sPleaseActivate, sFileName);// "此设备未激活，请先激活！"
+                return;
+            }
+            /*
+            * @param iInsertOrUpdate   在该窗口进行的操作，是向数据库插入还是修改数据。0不进行数据库操作；
+            *                           1在线设备插入数据；2管理设备表插入数据；3管理设备修改数据
+            * @param sAnotherName	设备别名
+            * @param sDVRIP        设备IP
+            * @param sServerPort	设备端口号
+            * @param sUserName	设备用户名
+            * @param SerialNO 设备序列号
+            * @param DVRType 设备类型
+            */
+            JDialogManageDevice dialogLoginDevice = new JDialogManageDevice(null, true, 1, "",sDVRIP,sServerPort,"",szSerialNO,sDeviceTypeCode);
+            CommonParas.centerWindow(dialogLoginDevice);
+            dialogLoginDevice.setVisible(true);
+            int iState = dialogLoginDevice.getReturnStatus();
+            if (iState < 0) return;//取消操作
+
+            if (iState == 1){
+                Vector newRow = new Vector();
+                newRow.add(dialogLoginDevice.getAnotherName());
+                newRow.add(dialogLoginDevice.getDVRIP());
+                newRow.add(dialogLoginDevice.getServerPort());
+                newRow.add(dialogLoginDevice.getSerialNO());
+                newRow.add("");
+
+                newRow.add(CommonParas.getPasswordGrade(dialogLoginDevice.getUserName(), dialogLoginDevice.getPassword()));//安全级别：密码级别
+                newRow.add("");
+                newRow.add("");
+                newRow.add("");
+                newRow.add("");
+                newRow.add("");
+                newRow.add("");
+                JButton RefreshButton = new JButton("",new ImageIcon(getClass().getResource("/jyms/image/Refresh.jpg")));
+                        RefreshButton.setBorder(null);
+                        RefreshButton.setBorderPainted(false);
+                        RefreshButton.setContentAreaFilled(false);
+                newRow.add(RefreshButton);
+
+                deviceManagedTableModel.addRow(newRow);
+                deviceManagedTableModel.fireTableDataChanged();
+
+                getOneDeviceWorkState(deviceManagedTableModel.getRowCount()-1,dialogLoginDevice.getUserID(), dialogLoginDevice.getDeviceInfo());
+                //CommonParas.hCNetSDK.NET_DVR_Logout_V30(dialogLoginDevice.getUserID());
+                CreateResourceTree();//刷新设备资源树
+                refreshDeviceResource(true,sGroupName,sResourceTypeCode);//刷新设备资源列表
+                //refeshDeviceParaList();//刷新已管理设备参数表的Bean列表;在JDialogManageDevice窗口中已经处理过了
+                deviceOnLineTableModel.setValueAt(sYes, iRow, 6);//是否已管理 "是"
+                deviceOnLineTableModel.fireTableRowsUpdated(iRow, iRow);
+                //CommonParas.showMessage(rootPane, "已成功将该设备添加到列表中！", sFileName);//JOptionPane.showMessageDialog(rootPane, "已成功将该设备添加到列表中！");
+                //操作时间、日志类型、描述信息、设备序列号、设备类型、调用的文件名
+                CommonParas.SystemWriteLog("",CommonParas.LogType.LOG_OPER_CODE, sRegisterDevice, szSerialNO, CommonParas.DVRType.DVRTYPE_ENCODINGDVR_CODE, sFileName);// "注册设备"
+                jLabelManaged.setText(MessageFormat.format(sManagedNums , jTableDeviceManaged.getRowCount()));//"管理设备("+  iManaged + ")"
+             }else if (iState == 0){
+                 //操作时间、日志类型、描述信息、设备序列号、设备类型、调用的文件名（）错误日志
+                CommonParas.SystemWriteLog("",CommonParas.LogType.LOG_ERROR_CODE, sRegisterDeviceFail, szSerialNO, CommonParas.DVRType.DVRTYPE_ENCODINGDVR_CODE, sFileName);// "注册设备失败"
+                CommonParas.showMessage(rootPane, sRegisterDeviceFail, sFileName);// "注册设备失败！"
+            }
+        }catch(Exception e)
+        {
+            TxtLogger.append(sFileName, "jButtonInsertMagageActionPerformed()","系统在添加管理设备过程中，出现错误" +
+                "\r\n                       Exception:" + e.toString());
+        }
+    }//GEN-LAST:event_jButtonInsertMagagedActionPerformed
+
+    private void jButtonModifyOnLineActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButtonModifyOnLineActionPerformed
+        // TODO add your handling code here:
+        //        try{
+        int iRow = jTableDeviceOnLine.getSelectedRow();
+        if (iRow < 0 ){
+            CommonParas.showMessage(rootPane, sNotSelectedDev, sFileName);// "没有选中任何设备！"
+            return;
+        }
+
+        iRow = jTableDeviceOnLine.convertRowIndexToModel(iRow);
+        try{
+            String sIfMagaged = (String)deviceOnLineTableModel.getValueAt(iRow, 6);//是否已管理
+            String SerialNO = (String)deviceOnLineTableModel.getValueAt(iRow, 7);//序列号
+            String IPAddr =  (String)deviceOnLineTableModel.getValueAt(iRow, 0);//IP地址
+            if (sIfMagaged.equals(sYes)) {// "是"
+                if ((JOptionPane.showConfirmDialog(this, sRealModifyNetworkData,
+                    sRemind,JOptionPane.YES_NO_OPTION) == JOptionPane.NO_OPTION)){// "此设备已经注册。如果修改网络数据，还需要再修改已管理设备的数据，真的要继续？" "提醒"
+                    return;
+                }
+            }
+
+            Sadp.SADP_DEV_NET_PARAM_JAVA msSADP_DEV_NET_PARAM_JAVA = getSADP_DEV_NET_PARAM_JAVA(SerialNO);
+
+            JDialogManageDeviceOnLine dialogManageDeviceOnLine = new JDialogManageDeviceOnLine(null, true, msSADP_DEV_NET_PARAM_JAVA, deviceOnLineTableModel, iRow);
+            CommonParas.centerWindow(dialogManageDeviceOnLine);
+            dialogManageDeviceOnLine.setVisible(true);
+            int iState = dialogManageDeviceOnLine.getReturnStatus();
+            
+            if (iState == 1){
+                CommonParas.showMessage(rootPane, sModifyNetworkDataSucc, sFileName);// "已成功修改了该设备网络参数！"
+                
+                //操作时间、日志类型、描述信息、设备序列号、设备类型、调用的文件名
+                CommonParas.SystemWriteLog("", CommonParas.LogType.LOG_OPER_CODE, sModifyNetworkData, SerialNO, CommonParas.DVRType.DVRTYPE_ENCODINGDVR_CODE, sFileName);// "修改设备网络参数"
+                device_SADP_Stop();
+                refreshDeviceOnLine();
+                
+            }else if (iState == 0){//操作时间、日志类型、描述信息、设备序列号、设备类型、调用的文件名
+                //String ErrorMsg = "错误码：" + sadpSDK.SADP_GetLastError();
+                CommonParas.SystemWriteErrorLog(sModifyNetworkDataFail, IPAddr, sFileName);// "修改设备网络参数失败"
+                //CommonParas.showMessage(rootPane, sModifyNetworkDataFail, sFileName);// "修改设备网络参数失败！"
+            }
+        }catch(Exception e)
+        {
+            TxtLogger.append(sFileName, "jButtonModifyOnLineActionPerformed()","系统修改设备网络参数过程中，出现错误" +
+                "\r\n                       Exception:" + e.toString());
+        }
+    }//GEN-LAST:event_jButtonModifyOnLineActionPerformed
+
+    private void jButtonActiveActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButtonActiveActionPerformed
+        // TODO add your handling code here:
+        try{
+            int iRow = jTableDeviceOnLine.getSelectedRow();
+            if (iRow < 0 ){
+                CommonParas.showMessage(rootPane, sNotSelectedDev, sFileName);// "没有选中任何设备！"
+                return;
+            }
+            iRow = jTableDeviceOnLine.convertRowIndexToModel(iRow);
+
+            String IfActivated = (String)deviceOnLineTableModel.getValueAt(iRow, 3);//是否已激活
+            if (IfActivated.equals(sActivated)) {// "已激活"
+                CommonParas.showMessage(rootPane, sNoNeedActivate, sFileName);// "此设备已经激活，无需再进行激活！"
+                return;
+            }
+            String inputValue = JOptionPane.showInputDialog(sPleaseEnterPassword);// "请输入设备密码："
+            String SerialNO = (String)deviceOnLineTableModel.getValueAt(iRow, 7);//序列号
+            String IPAddr =  (String)deviceOnLineTableModel.getValueAt(iRow, 0);//IP地址
+            if (sadpSDK.SADP_ActivateDevice( SerialNO, inputValue.trim()) == 1){
+                CommonParas.showMessage(rootPane, sActivateDeviceSucc, sFileName);// "该设备已经成功激活！"
+                deviceOnLineTableModel.setValueAt(sActivated , iRow, 3);//"已激活"
+                deviceOnLineTableModel.fireTableDataChanged();
+                //操作时间、日志类型、描述信息、设备序列号、设备类型、调用的文件名
+                CommonParas.SystemWriteLog("", CommonParas.LogType.LOG_OPER_CODE, sActivateDevice, SerialNO, CommonParas.DVRType.DVRTYPE_ENCODINGDVR_CODE, sFileName);// "激活设备"
+            }else{
+                //String ErrorMsg = "错误码：" + sadpSDK.SADP_GetLastError();
+                CommonParas.SystemWriteErrorLog( sActivateDeviceFail, IPAddr, sFileName);// "激活设备失败"
+                CommonParas.showMessage(rootPane, sActivateDeviceNotSucc, sFileName);// "该设备未能成功激活！"
+                //操作时间、日志类型、描述信息、设备序列号、设备类型、调用的文件名
+                //CommonParas.SystemWriteLog("", CommonParas.LogType.LOG_OPER_CODE, "激活设备失败", SerialNO, CommonParas.DVRType.DVRTYPE_ENCODINGDVR, sFileName);
+            }
+        }catch(Exception e)
+        {
+            TxtLogger.append(sFileName, "jButtonActiveActionPerformed()","系统激活设备过程中，出现错误" +
+                "\r\n                       Exception:" + e.toString());
+        }
+        //已激活未激活
+    }//GEN-LAST:event_jButtonActiveActionPerformed
+
+    private void jTextFieldFilterOnLineFocusGained(java.awt.event.FocusEvent evt) {//GEN-FIRST:event_jTextFieldFilterOnLineFocusGained
+        // TODO add your handling code here:
+        if (jTextFieldFilterOnLine.getText().equals(sFilter)){// "过滤"
+            jTextFieldFilterOnLine.setText("");
+        }
+    }//GEN-LAST:event_jTextFieldFilterOnLineFocusGained
+
+    private void jTextFieldFilterOnLineFocusLost(java.awt.event.FocusEvent evt) {//GEN-FIRST:event_jTextFieldFilterOnLineFocusLost
+        // TODO add your handling code here:
+        if (jTextFieldFilterOnLine.getText().equals("")){
+            jTextFieldFilterOnLine.setText(sFilter);// "过滤"
+        }
+    }//GEN-LAST:event_jTextFieldFilterOnLineFocusLost
+
+    private void jTextFieldFilterOnLineKeyTyped(java.awt.event.KeyEvent evt) {//GEN-FIRST:event_jTextFieldFilterOnLineKeyTyped
+        // TODO add your handling code here:
+        char c = evt.getKeyChar();
+        String sFilter = jTextFieldFilterOnLine.getText().trim() + c;
+        TableRowSorter sorter = new TableRowSorter(deviceOnLineTableModel);
+        sorter.setRowFilter(RowFilter.regexFilter(".*" + sFilter.trim() + ".*"));
+
+        jTableDeviceOnLine.setRowSorter(sorter);
+    }//GEN-LAST:event_jTextFieldFilterOnLineKeyTyped
+
+    private void jTextFieldFilterResourceFocusGained(java.awt.event.FocusEvent evt) {//GEN-FIRST:event_jTextFieldFilterResourceFocusGained
+        // TODO add your handling code here:
+        if (jTextFieldFilterResource.getText().equals(sFilter)){//"过滤"
+            jTextFieldFilterResource.setText("");
+        }
+    }//GEN-LAST:event_jTextFieldFilterResourceFocusGained
+
+    private void jTextFieldFilterResourceFocusLost(java.awt.event.FocusEvent evt) {//GEN-FIRST:event_jTextFieldFilterResourceFocusLost
+        // TODO add your handling code here:
+        if (jTextFieldFilterResource.getText().equals("")){
+            jTextFieldFilterResource.setText(sFilter);// "过滤"
+        } 
+    }//GEN-LAST:event_jTextFieldFilterResourceFocusLost
+
+    private void jTextFieldFilterResourceKeyTyped(java.awt.event.KeyEvent evt) {//GEN-FIRST:event_jTextFieldFilterResourceKeyTyped
+        // TODO add your handling code here:
+        char c = evt.getKeyChar();
+        String sFilter = jTextFieldFilterResource.getText().trim() + c;
+        TableRowSorter sorter = new TableRowSorter(deviceResourceTableModel);
+        sorter.setRowFilter(RowFilter.regexFilter(".*" + sFilter.trim() + ".*"));
+
+        jTableDeviceResource.setRowSorter(sorter);
+    }//GEN-LAST:event_jTextFieldFilterResourceKeyTyped
+
+    private void formInternalFrameOpened(javax.swing.event.InternalFrameEvent evt) {//GEN-FIRST:event_formInternalFrameOpened
+        // TODO add your handling code here:
+        try{
+            /**setDividerLocation(double)这个函数会用到getWidth()或者getHeight()这样的函数，
+             * 而java桌面程序在没有主窗体setVisible之前，如果使用布局，尚未validate()和paint()。
+             * 每个组件的宽和高默认都是0。
+             * 也就是说一定要在主窗体setVisible(true)之后再使用setDividerLocation(double)才会有效。*/
+            jSplitPaneDVRs.setDividerLocation(0.5);
+
+            deviceManagedTableModel = this.initialDeviceManagedTableModel();
+            jTableDeviceManaged.setModel(deviceManagedTableModel);
+
+            deviceOnLineTableModel = this.initialDeviceOnLineTableModel();
+            jTableDeviceOnLine.setModel(deviceOnLineTableModel);
+
+            deviceResourceTableModel = this.initialResourceTableModel();
+            jTableDeviceResource.setModel(deviceResourceTableModel);
+            
+            //设备资源树
+            CreateDeviceTree();
+            CreateResourceTree();
+            //CommonParaCreateResourceTrees.CreateDeviceResourceTypeTree(jTreeResource, m_RootResource,"", sFileName);
+            refreshDeviceResource(true,sGroupName,sResourceTypeCode);
+            
+            //刷新管理设备和在线设备
+            refreshWorker = new RefreshDeviceWorker();
+            refreshWorker.execute();
+            
+            
+//            //刷新管理设备
+//            refreshDeviceManaged();
+//            resizeTable(jScrollPaneMagaged,jTableDeviceManaged,true);
+//
+//            //刷新在线设备
+//            refreshDeviceOnLine();
+//            resizeTable(jScrollPaneOnLine,jTableDeviceOnLine,true);
+
+            
+        }catch(Exception e){
+            TxtLogger.append(sFileName, "formInternalFrameOpened()","系统在刷新设备状态和搜索设备的过程中，出现错误" +
+                "\r\n                       Exception:" + e.toString());
+        }
+
+    }//GEN-LAST:event_formInternalFrameOpened
+
+    private void jButtonExit1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButtonExit1ActionPerformed
+        // TODO add your handling code here:
+        doDefaultCloseAction();
+    }//GEN-LAST:event_jButtonExit1ActionPerformed
+
+    private void jButtonImportActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButtonImportActionPerformed
+        // TODO add your handling code here:
+        String GroupName = sGroupName;
+        JDialogDVRResourceImport DialogDVRResourceImport = new JDialogDVRResourceImport(null, true, sGroupName, listNewGroupNames);
+        //DialogDVRResourceImport.setLocation(jButtonImport.getX()-DialogDVRResourceImport.getWidth(), jButtonImport.getY());
+        CommonParas.centerWindow(DialogDVRResourceImport);
+        DialogDVRResourceImport.setVisible(true);
+        
+        if (DialogDVRResourceImport.isIfModifySuccess()){
+            //如果导入成功，则重新建树
+            CreateResourceTree();
+            refreshDeviceResource(true,GroupName,sResourceTypeCode);
+            TreePath path = jTreeResource.getNextMatch(GroupName, 0, Position.Bias.Forward);
+            jTreeResource.setSelectionPath(path);
+            jTreeResource.expandRow(jTreeResource.getMinSelectionRow());
+        }else {
+            //如果没有修改，只是添加了组名，为了保险起见，重新刷新无节点组名
+            for (int i=m_RootResource.getChildCount()-1;i > -1;i--){
+                DefaultMutableTreeNode Node2 = (DefaultMutableTreeNode)m_RootResource.getChildAt(i);
+                if (Node2.getChildCount() == 0) m_RootResource.remove(Node2);
+            } 
+            DefaultTreeModel TreeModel = ((DefaultTreeModel) jTreeResource.getModel());//获取树模型
+            for (int i=0;i<listNewGroupNames.size();i++){
+                String GroupName2 = listNewGroupNames.get(i);
+                DefaultMutableTreeNode newNode = new DefaultMutableTreeNode(GroupName2);
+                TreeModel.insertNodeInto(newNode, m_RootResource, m_RootResource.getChildCount());
+            }
+            TreeModel.reload();
+        }
+         
+    }//GEN-LAST:event_jButtonImportActionPerformed
+
+    private void jButtonDelteteResourceActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButtonDelteteResourceActionPerformed
+        // TODO add your handling code here:
+        try{
+            int iRow = jTableDeviceResource.getSelectedRow();
+            if (iRow < 0 ){
+                CommonParas.showMessage(rootPane, sNoResourceSelected, sFileName);// "没有选中任何设备资源！"
+                return;
+            }
+            String SerialNo = (String) deviceResourceTableModel.getValueAt(iRow, 2);//得到序列号
+            String NodeName2 = (String) deviceResourceTableModel.getValueAt(iRow, 0);
+            int Index  = NodeName2.lastIndexOf("_", NodeName2.length()-4);//反向搜索得到倒数第二个"_"的索引
+            String NodeName = NodeName2.substring(Index+1);//得到资源节点名
+            if (DeviceGroupBean.DeleteGroupResource(sGroupName, SerialNo, NodeName, sFileName) > 0){
+                refreshDeviceResource(true,sGroupName,sResourceTypeCode);
+                //CommonParas.showMessage(rootPane, "已删除“" + sGroupName + "”中的设备资源“" + NodeName2 + "”！", sFileName);
+                //操作时间、日志类型、描述信息、设备序列号、分组名、节点名、调用的文件名
+                CommonParas.SystemWriteLog("", CommonParas.LogType.LOG_OPER_CODE, sDelGroupResource, SerialNo, sGroupName, NodeName, CommonParas.DVRType.DVRTYPE_ENCODINGDVR_CODE,
+                                                CommonParas.DVRResourceType.getResourceTypeCodeFromNode(NodeName2), sFileName);// "删除分组资源"
+            }else{
+                //操作时间、日志类型、描述信息、设备序列号、分组名、节点名、调用的文件名（写错误日志）
+                CommonParas.SystemWriteLog("", CommonParas.LogType.LOG_ERROR_CODE, sDelGroupResourceFail, SerialNo, sGroupName, NodeName,  CommonParas.DVRType.DVRTYPE_ENCODINGDVR_CODE,
+                                                CommonParas.DVRResourceType.getResourceTypeCodeFromNode(NodeName2), sFileName);// "删除分组资源失败"
+            }
+
+        }catch(Exception e)
+        {
+            TxtLogger.append(sFileName, "jButton1DelteteResourceActionPerformed()","系统删除分组中资源的过程中，出现错误" +
+                "\r\n                       Exception:" + e.toString());
+        }
+    }//GEN-LAST:event_jButtonDelteteResourceActionPerformed
+
+    private void jButtonModifyPassActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButtonModifyPassActionPerformed
+        // TODO add your handling code here:
+        if (!CommonParas.UserState.UserTypeCode.equals(CommonParas.USER_TYPECODE_ADMIN)) {
+            CommonParas.showMessage(sNeedSuperAdmin, sFileName);// "只有超级管理员才能修改设备密码！"
+            return ;
+        }
+        int iRow = jTableDeviceOnLine.getSelectedRow();
+        if (iRow < 0 ){
+            CommonParas.showMessage(rootPane, sNotSelectedDev, sFileName);// "没有选中任何设备！"
+            return;
+        }
+        iRow = jTableDeviceOnLine.convertRowIndexToModel(iRow);
+        currentSadpDevNetParam = list_SADP_DEV_NET_PARAM_JAVA.get(iRow).clone();
+        CommonParas.centerWindow(jDialogDVRPassModify);
+        jDialogDVRPassModify.setVisible(true);
+        
+    }//GEN-LAST:event_jButtonModifyPassActionPerformed
+
+    private void jButtonOkActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButtonOkActionPerformed
+        // TODO add your handling code here:
+        try{
+            if (currentSadpDevNetParam == null) return;
+
+            String Password1 = new String(jPasswordFieldNew1.getPassword());
+            String Password2 = new String(jPasswordFieldNew2.getPassword());
+
+            String PasswordOld = new String(jPasswordFieldOld.getPassword());
+            String PasswordSysAdmin = new String(jPasswordFieldSysAdmin.getPassword());//超级管理员密码
+
+            if (Password1.equals("") || Password2.equals("") || PasswordOld.equals("") || PasswordSysAdmin.equals("")) {
+                CommonParas.showMessage(sPasswordNoEmpty, sFileName);// "密码输入不能为空！"
+                return;
+            }
+
+            if (!Password1.equals(Password2)){
+                //JOptionPane.showMessageDialog(null, "两次输入的密码不一致！");
+                CommonParas.showMessage(sPassNotSame, sFileName);// "两次输入的密码不一致！"
+                return;
+            }
+            
+            if(!CommonParas.UserState.UserTypeCode.equals(CommonParas.USER_TYPECODE_ADMIN) || 
+                    UsersBean.checkPasswordIfOK(CommonParas.UserState.UserName,MD5Encrypt.getMD5Str(PasswordSysAdmin),sFileName) < 1){
+                CommonParas.showMessage(sSuperAdminPassWrong, sFileName);// "系统超级管理员密码错误！"
+                return;
+            }
+            //tabeTile = new String [] {"IP地址", "设备类型", "主控版本", "安全状态", "服务端口", "开始时间", "是否已管理", "设备序列号"};
+
+            IntByReference ibrBytesReturned = new IntByReference(0);//获取设备的配置信息。
+            //int Channel = 1;//通道号
+            boolean bRet = false;
+    //        int Row = 3;//jTableDeviceOnLine.getSelectedRow();
+    //        String DVRIP = (String)deviceOnLineTableModel.getValueAt(Row, 0);
+    //        short Port = Short.parseShort((String)deviceOnLineTableModel.getValueAt(Row, 4));
+            HCNetSDK.NET_DVR_DEVICEINFO_V30 StrDeviceInfo = new HCNetSDK.NET_DVR_DEVICEINFO_V30();
+            //if (currentSadpDevNetParam.get
+            NativeLong UserID = CommonParas.hCNetSDK.NET_DVR_Login_V30(currentSadpDevNetParam.getIPv4Address(), Short.parseShort(currentSadpDevNetParam.getPort()), "admin", PasswordOld, StrDeviceInfo);
+            if(UserID.intValue() < 0){
+                CommonParas.showErrorMessage(sOriginalPassError, currentSadpDevNetParam.getIPv4Address(), sFileName);// "原密码输入错误"
+                return;
+            }
+            //修改密码用
+            HCNetSDK.NET_DVR_USER_V40 struDVRUser = new HCNetSDK.NET_DVR_USER_V40();//用户参数配置（扩展）结构体
+            //HCNetSDK.NET_DVR_USER_INFO_V40 struDVRUserInfo;//用户信息结构体
+
+            struDVRUser.write();
+            Pointer lpStruDVRUser = struDVRUser.getPointer();
+            //此时lChannel表示组号，从0开始，每组32个用户
+            bRet = CommonParas.hCNetSDK.NET_DVR_GetDVRConfig(UserID, HCNetSDK.NET_DVR_GET_USERCFG_V40, new NativeLong(0), lpStruDVRUser, struDVRUser.size(), ibrBytesReturned);
+            struDVRUser.read();
+
+            if (!bRet)
+            {
+                //CommonParas.showErrorMessage(this.getRootPane(), "获取预置点信息失败。", channelRPBall.getDeviceparaBean().getAnothername(), sFileName);
+                CommonParas.showErrorMessage(sGetDevUserParaFail, currentSadpDevNetParam.getIPv4Address(), sFileName);// "获取设备用户参数信息失败"
+                //写错误日志
+                CommonParas.SystemWriteErrorLog(sGetDevUserParaFail,  currentSadpDevNetParam.getIPv4Address(), sFileName);//  "获取设备用户参数信息失败"
+                return;
+            }
+            for (int i=0;i<=struDVRUser.dwMaxUserNum ;i++){
+                String DVRUserName = new String(struDVRUser.struUser[i].sUserName).trim();
+                if (DVRUserName.toLowerCase().equals("admin")){
+                    struDVRUser.struUser[i].sPassword = Arrays.copyOf(Password1.getBytes(), HCNetSDK.PASSWD_LEN);
+                }
+            }
+
+            //将新密码写入用户参数结构中
+            struDVRUser.write();
+            lpStruDVRUser = struDVRUser.getPointer();
+            //此时lChannel表示组号，从0开始，每组32个用户
+            bRet = CommonParas.hCNetSDK.NET_DVR_SetDVRConfig(UserID, HCNetSDK.NET_DVR_SET_USERCFG_V40, new NativeLong(0), lpStruDVRUser, struDVRUser.size());
+            struDVRUser.read();
+
+            if (!bRet){
+                CommonParas.showErrorMessage(sModifyPasswordFail, currentSadpDevNetParam.getIPv4Address(), sFileName);// "密码修改失败！"
+                //写错误日志
+                CommonParas.SystemWriteErrorLog( sModifyPasswordFail,  currentSadpDevNetParam.getIPv4Address(), sFileName);// "密码修改失败！"
+                return;
+            }else {
+                CommonParas.SystemWriteLog("", CommonParas.LogType.LOG_OPER_CODE, sModifyDevAdminPass, currentSadpDevNetParam.getSerialNO(), CommonParas.DVRType.DVRTYPE_ENCODINGDVR_CODE, sFileName);// "修改设备管理员密码"
+                CommonParas.showMessage(sModifyPasswordSucc, sFileName);// "密码修改成功！"
+            }
+            CommonParas.hCNetSDK.NET_DVR_Logout_V30(UserID);
+            
+        }catch(Exception e)
+        {
+            TxtLogger.append(sFileName, "CreateDeviceTree()","系统在建立设备树过程中，出现错误" + 
+                            "\r\n                       Exception:" + e.toString());   
+        }
+        jDialogDVRPassModify.setVisible(false);
+   
+    }//GEN-LAST:event_jButtonOkActionPerformed
+
+    private void jButtonCancelActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButtonCancelActionPerformed
+        // TODO add your handling code here:
+        jDialogDVRPassModify.setVisible(false);
+    }//GEN-LAST:event_jButtonCancelActionPerformed
+
+    private void formInternalFrameClosing(javax.swing.event.InternalFrameEvent evt) {//GEN-FIRST:event_formInternalFrameClosing
+        // TODO add your handling code here:
+//        this.setCursor(new Cursor(Cursor.WAIT_CURSOR));
+        
+        if (refreshWorker != null)          refreshWorker.cancel(true);
+        if (refreshManagedWorker != null)   refreshManagedWorker.cancel(true);
+        if (refreshOnLineWorker != null)    refreshOnLineWorker.cancel(true);
+        if (refreshOneManagedWorker != null) refreshOneManagedWorker.cancel(true);
+        
+        int iReturn = sadpSDK.SADP_Stop();
+        list_SADP_DEV_NET_PARAM_JAVA.clear();
+        if (iReturn == 1){
+            System.out.println("SADP_Stop success");
+        }
+        
+//        this.setCursor(new Cursor(Cursor.DEFAULT_CURSOR));
+    }//GEN-LAST:event_formInternalFrameClosing
+
+    private void jButtonExit2ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButtonExit2ActionPerformed
+        // TODO add your handling code here:
+        jButtonCancel.doClick();
+    }//GEN-LAST:event_jButtonExit2ActionPerformed
+
+    private void jTreeResourceValueChanged(javax.swing.event.TreeSelectionEvent evt) {//GEN-FIRST:event_jTreeResourceValueChanged
+        // TODO add your handling code here:
+        try{
+            DefaultTreeModel dtm = (DefaultTreeModel)jTreeResource.getModel();
+            //        下面两个函数不能用，因为没有展开的节点不计算行数
+            //        int row = jTreeResource.getMinSelectionRow();
+            //        int row2 = jTreeResource.getLeadSelectionRow();
+            TreePath tp = jTreeResource.getSelectionPath();//获取选中节点的路径
+            if (tp == null) return;
+            
+            String sNodeName3 = ((DefaultMutableTreeNode)tp.getLastPathComponent()).toString();
+            String sNodeName2 = ((DefaultMutableTreeNode)tp.getParentPath().getLastPathComponent()).toString();
+
+            //        int iLevel = ((DefaultMutableTreeNode)jTreeResource.getSelectionPath().getLastPathComponent()).getLevel();
+            //        String ss = ((DefaultMutableTreeNode)jTreeResource.getSelectionPath().getLastPathComponent()).getRoot().toString();
+            //        System.out.println("iLevel:" + iLevel);//仅是做个实验，如果是在组名上则为1；在节点上则为2
+            //        System.out.println("ss:" + ss);
+            String sNodeName = null;
+            try{
+                sNodeName = tp.getParentPath().getParentPath().toString();
+                //此时没有抛出NullPointerException，则说明是3级节点
+            }catch (NullPointerException e){
+                sNodeName = null;//此时抛出NullPointerException，则说明是2级节点，即组名节点，则说明双击在组名上
+            }
+
+            if (sNodeName == null){
+                sGroupName = sNodeName3;
+                sResourceTypeCode = null;
+            }else{
+                sGroupName = sNodeName2;
+                sResourceTypeCode = getResourceTypeCode(sNodeName3);
+            }
+            refreshDeviceResource(false,sGroupName,sResourceTypeCode);
+        }catch (Exception e){
+            TxtLogger.append(sFileName, "jTreeResourceValueChanged()","用户在点击设备资源树的过程中，出现错误"
+                +  "\r\n                       Exception:" + e.toString() +  ";");
+        }
+        
+    }//GEN-LAST:event_jTreeResourceValueChanged
+
+    
+    /**
+	 * 函数:      initialDeviceOnLineTableModel
+         * 函数描述:  初始化在线设备参数列表jTableDeviceOnLine
+         * @return DefaultTableModel
+    */
+    private DefaultTableModel initialDeviceOnLineTableModel()
+    {
+        //String[] sOnLineTableTitle;
+        //sOnLineTableTitle = new String [] {"IP地址", "设备类型", "主控版本", "安全状态", "服务端口", "开始时间", "是否已管理", "设备序列号"};
+
+        //DefaultTableModel DeviceOnLineTableModel = new DefaultTableModel(tabeTile, 0);
+        return CommonParas.initialNormalNoEditTableModel(sOnLineTableTitle);
+        //return DeviceOnLineTableModel;
+    }
+
+    /**
+	 * 函数:      initialDeviceManagedTableModel
+         * 函数描述:  初始化管理设备参数列表jTableDeviceManaged
+         * @return JTableButtonModel
+    */
+    private JTableButtonModel initialDeviceManagedTableModel()
+    {
+        //String[] sManagedTableTitle;
+        
+        //sManagedTableTitle = new String[] {"别名","IP地址","端口号", "设备序列号", "设备状态", "安全状态", "网络状态", "硬盘状态", "通道录像状态", "通道信号状态", "通道硬件状态", "总链接路数", "刷新"};
+        JTableButtonModel deviceManagedTableModel =new JTableButtonModel(sManagedTableTitle);
+        
+//        DefaultTableModel DeviceManagedTableModel = new DefaultTableModel(tabeTile, 0);
+        return deviceManagedTableModel;
+    }
+    
+//    private void setTableOnLineColWidth(){
+//        Enumeration<TableColumn> emuCols = jTableDeviceOnLine.getColumnModel().getColumns(); 
+//        while(emuCols.hasMoreElements()){
+//            TableColumn tableColumn = emuCols.nextElement();
+//            String Header = (String)tableColumn.getHeaderValue();
+//            if (null != Header) switch(Header){
+//                //"IP", "设备类型", "主控版本", "安全状态", "服务端口", "开始时间", "是否已管理", "设备序列号"
+//                case "IP":  
+////                    tableColumn.setPreferredWidth(200);
+//                    tableColumn.setMinWidth(0);
+//        tableColumn.setMaxWidth(0);
+//        tableColumn.setWidth(0);
+//                    //System.out.println("IP："+ tableColumn.getMaxWidth());
+//                    break;
+//                case "设备类型":
+//                    tableColumn.setPreferredWidth(400);
+//                    //System.out.println("设备类型："+ tableColumn.getMaxWidth());
+//                    break;
+//                case "主控版本": 
+//                    tableColumn.setPreferredWidth(200);
+//                    //System.out.println("主控版本："+ tableColumn.getMaxWidth());
+//                    break;
+//                case "安全状态":
+//                    tableColumn.setPreferredWidth(800);
+//                    //System.out.println("安全状态："+ tableColumn.getMaxWidth());
+//                    break;
+//                case "服务端口":
+//                    tableColumn.setPreferredWidth(200);
+//                    System.out.println("服务端口："+ tableColumn.getMaxWidth());
+//                    break;
+//                case "开始时间":
+//                    tableColumn.setPreferredWidth(300);
+//                    //System.out.println("开始时间："+ tableColumn.getMaxWidth());
+//                    break;
+//                case "是否已管理":
+//                    tableColumn.setPreferredWidth(400);
+//                    //System.out.println("是否已管理："+ tableColumn.getMaxWidth());
+//                    break;
+//                case "设备序列号":
+//                    tableColumn.setPreferredWidth(400);
+//                    //System.out.println("设备序列号："+ tableColumn.getMaxWidth());
+//                    break;    
+//                
+//            }
+//        }
+//        
+//    }
+    /**
+	 * 函数:        initialResourceTableModel
+         * 函数描述:    初始化分组资源列表jTableResource
+         * @return      DefaultTableModel
+    */
+    public DefaultTableModel initialResourceTableModel()
+    {
+        //String[] sResourceTableTitle;
+        //sResourceTableTitle = new String [] { "设备资源", "IP", "设备序列号"};
+
+        return CommonParas.initialNormalNoEditTableModel(sResourceTableTitle);
+    }
+
+    /**
+        *函数:      initialDeviceTreeModel
+        *函数描述:  初始化设备树
+        * @return DefaultTreeModel
+     */
+    private DefaultTreeModel initialDeviceTreeModel()
+    {
+        m_RootDevice = new DefaultMutableTreeNode(sDevice);// "设备"
+        DefaultTreeModel myDefaultTreeModel = new DefaultTreeModel(m_RootDevice);//使用根节点创建模型
+        return myDefaultTreeModel;
+    }
+    /**
+        *函数:      initialResourceTreeModel
+        *函数描述:  初始化设备资源树
+        * @return DefaultTreeModel
+     */
+    private DefaultTreeModel initialResourceTreeModel()
+    {
+        m_RootResource = new DefaultMutableTreeNode(sResource);// "资源"
+        DefaultTreeModel myDefaultTreeModel = new DefaultTreeModel(m_RootResource);//使用根节点创建模型
+        return myDefaultTreeModel;
+    }
+
+    /**
+	 * 函数:      CreateDeviceTree
+         * 函数描述:  建立设备树
+    */
+    private void CreateDeviceTree()
+    {
+        try{
+            DefaultTreeModel TreeModel = ((DefaultTreeModel) jTreeDevice.getModel());//获取树模型
+            listDeviceCodesBean = CodesBean.getCodesList(CommonParas.DVRType.DVRTYPE_CODE, "1", sFileName);
+            m_RootDevice.removeAllChildren();//根节点删除所有的子节点
+    //        TreeModel.reload();//删除后更新显示界面nodeStructureChanged(m_RootDevice);reload(m_RootDevice)
+
+            for (int i=0;i<listDeviceCodesBean.size();i++){
+                CodesBean codesBean = listDeviceCodesBean.get(i);
+                if (i == 0 && sDeviceTypeCode == null) sDeviceTypeCode = codesBean.getCode();
+                DefaultMutableTreeNode newNode = new DefaultMutableTreeNode(codesBean.getCodename());
+                TreeModel.insertNodeInto(newNode, m_RootDevice,i);
+            }
+            TreeModel.reload();//将添加的节点显示到界面nodeStructureChanged(m_RootDevice);reload(m_RootDevice)都可以
+            jTreeDevice.setSelectionInterval(0, 0);//选中第一个节点
+        }catch(Exception e)
+            {
+                TxtLogger.append(sFileName, "CreateDeviceTree()","系统在建立设备树过程中，出现错误" + 
+                                "\r\n                       Exception:" + e.toString());   
+            }
+    }
+    /**
+	 * 函数:      CreateResourceTree
+         * 函数描述:  建立设备资源树
+    */
+    private void CreateResourceTree()
+    {
+        try{
+            DefaultTreeModel TreeModel = ((DefaultTreeModel) jTreeResource.getModel());//获取树模型
+            listResourceCodesBean = CodesBean.getCodesList(CommonParas.DVRResourceType.RESTYPE_ENCODINGDVR_CODE, "1", this.sFileName);//获取编码设备的所有资源
+            if (listResourceCodesBean == null) return;
+            listDeviceGroupNames = DeviceGroupBean.getDeviceGroupNameList(this.sFileName);//获取设备分组表中的““组名”列表
+            if (listDeviceGroupNames == null) return;
+            //一次只能选一个节点
+            jTreeResource.getSelectionModel().setSelectionMode(TreeSelectionModel.SINGLE_TREE_SELECTION); 
+            m_RootResource.removeAllChildren();//根节点删除所有的子节点
+    //        TreeModel.reload();//将添加的节点显示到界面
+            for (int i=0;i<listDeviceGroupNames.size();i++){
+    //            ArrayList listDeviceGroupNames2 = (ArrayList)listDeviceGroupNames.get(i);
+
+                //当前组名sGroupName的第一次赋值
+                if (i == 0) sGroupName = (String)listDeviceGroupNames.get(i);
+                DefaultMutableTreeNode newNode = new DefaultMutableTreeNode((String)listDeviceGroupNames.get(i));
+                TreeModel.insertNodeInto(newNode, m_RootResource,i);
+                for (int j=0;j<listResourceCodesBean.size();j++){
+                    CodesBean codesBean = listResourceCodesBean.get(j);
+                    //当前设备资源类型sResourceType的第一次赋值
+                    if (j == 0) sResourceTypeCode = codesBean.getCode();
+                    DefaultMutableTreeNode newNode2 = new DefaultMutableTreeNode(codesBean.getCodename());
+                    TreeModel.insertNodeInto(newNode2, newNode,j);
+                }
+            }
+            TreeModel.reload();//将添加的节点显示到界面
+            jTreeResource.expandRow(0);
+
+            //和上面sGroupName,sResourceType的第一次赋值相对应，选中第一个组的第一个设备类型
+            jTreeResource.setSelectionInterval(1, 1);//选中第二个节点（第一个节点的第一个子节点）
+            
+            //如果没有修改，只是添加了组名，为了保险起见，重新刷新无节点组名
+            for (int i=m_RootResource.getChildCount()-1;i > -1;i--){
+                DefaultMutableTreeNode Node2 = (DefaultMutableTreeNode)m_RootResource.getChildAt(i);
+                if (Node2.getChildCount() == 0) m_RootResource.remove(Node2);
+            } 
+            //DefaultTreeModel TreeModel = ((DefaultTreeModel) jTreeResource.getModel());//获取树模型
+            for (int i=0;i<listNewGroupNames.size();i++){
+                String GroupName2 = listNewGroupNames.get(i);
+                DefaultMutableTreeNode newNode = new DefaultMutableTreeNode(GroupName2);
+                TreeModel.insertNodeInto(newNode, m_RootResource, m_RootResource.getChildCount());
+            }
+            TreeModel.reload();
+        }catch(Exception e)
+            {
+                TxtLogger.append(sFileName, "CreateResourceTree()","系统在建立设备资源树过程中，出现错误" + 
+                                "\r\n                       Exception:" + e.toString());   
+            }
+    }
+
+        
+    /**
+        *函数:      refreshDeviceManaged
+        *函数描述:  刷新已管理设备列表数据
+     */
+    void refreshDeviceManaged(){
+        try{
+            fillIntoTableDeviceManaged();
+            getAllDeviceWorkState();
+        }catch(Exception e)
+            {
+                TxtLogger.append(sFileName, "refreshDeviceManaged()","系统在刷新已管理设备列表数据过程中，出现错误" + 
+                                "\r\n                       Exception:" + e.toString());   
+            }
+    }
+    /**
+        *函数:      fillIntoTableDeviceManaged
+        *函数描述:  从数据库中提取所有的管理设备到JTable中
+    */
+    private void fillIntoTableDeviceManaged(){
+        try {
+
+            Vector v = deviceManagedTableModel.getDataVector();
+            if (v != null) {
+                deviceManagedTableModel.getDataVector().clear();//.removeAllElements();//清空在线设备列表
+            }
+            
+            iManaged = 0;
+            //重新刷新已管理设备参数表的Bean列表
+            //refeshDeviceParaList();;在系统登录窗口中已经处理过了
+            if (listDeviceDetailPara == null || listDeviceDetailPara.size() == 0) return;
+    //        deviceManagedTableModel.addRow(new Object[12]); 
+            for (int i=0;i<listDeviceDetailPara.size();i++){
+                DeviceParaBean deviceparaBean = CommonParas.getDeviceParaBean(i, sFileName);//listDeviceparaBean.get(i);
+                //"别名","IP","端口号", "设备序列号", "设备状态", "安全状态", "网络状态", "硬盘状态", "通道录像状态", "通道信号状态", "通道硬件状态", "总链接路数", "刷新"
+    
+                Vector newRow = new Vector();
+                newRow.add(deviceparaBean.getAnothername());
+                newRow.add(deviceparaBean.getDVRIP());
+                newRow.add(deviceparaBean.getServerport());
+//                listIPMagaged.add(deviceparaBean.getDvrip());
+                newRow.add(deviceparaBean.getSerialNO());
+//                listSerialNOMagaged.add(deviceparaBean.getSerialNO());
+                newRow.add("");//"设备状态"
+                newRow.add(CommonParas.getPasswordGrade(deviceparaBean.getUsername(), deviceparaBean.getPassword()));//"安全状态"
+                newRow.add("");
+                newRow.add("");
+                newRow.add("");
+                newRow.add("");
+                newRow.add("");
+                newRow.add("");
+                        JButton RefreshButton = new JButton("",new ImageIcon(getClass().getResource("/jyms/image/Refresh.jpg")));
+                        RefreshButton.setBorder(null);
+                        RefreshButton.setBorderPainted(false);
+                        RefreshButton.setContentAreaFilled(false);
+                newRow.add(RefreshButton);
+
+                iManaged ++;
+                deviceManagedTableModel.getDataVector().add(newRow);
+            }
+
+
+            deviceManagedTableModel.fireTableDataChanged();
+
+            jTableDeviceManaged.repaint();
+    //        if (iManaged > 0) jTableDeviceManaged.setRowSelectionInterval(0, 0);
+            jLabelManaged.setText(MessageFormat.format(sManagedNums , iManaged));//"管理设备("+  iManaged + ")"
+        }catch(Exception e)
+            {
+                TxtLogger.append(sFileName, "fillIntoTableDeviceManaged()","系统在刷新管理设备表过程中，出现错误" + 
+                                "\r\n                       Exception:" + e.toString());   
+            }
+
+    }
+
+    /**
+	 * 函数:      getAllDeviceWorkState
+         * 函数描述:  读取所有的已管理设备的工作状态
+     */
+    private void getAllDeviceWorkState(){
+        try{
+            int iRowCount = deviceManagedTableModel.getRowCount();
+            if (iRowCount == 0) return;
+            if (listDeviceDetailPara == null) return;
+            NativeLong lUserID = new NativeLong(-1);
+            for (int i=0;i<listDeviceDetailPara.size();i++) {
+                if (!bDeviceRefreshing) break;
+                HCNetSDK.NET_DVR_DEVICEINFO_V30 strDeviceInfo = null;
+
+                lUserID = CommonParas.getUserID(i, sFileName);
+                
+                if (lUserID.intValue() > -1) 
+                    strDeviceInfo = CommonParas.getStrDeviceInfo(i, sFileName);
+
+                if (deviceManagedTableModel.getValueAt(i, 1).equals(CommonParas.getDeviceParaBean(i, sFileName).getDVRIP())){//deviceparaBean.getDVRIP()
+                    getOneDeviceWorkState(i,lUserID, strDeviceInfo);
+                }
+
+            }
+        }catch(Exception e)
+        {
+            TxtLogger.append(sFileName, "getAllDeviceWorkState()","读取所有的已管理设备的工作状态过程中，出现错误" + 
+                            "\r\n                       Exception:" + e.toString());   
+       
+        }
+
+    }
+
+    /**
+        * 函数:      getOneDeviceWorkState
+        * 函数描述:  读取管理设备列表jTableDeviceManaged中（某一行）某一个管理设备的工作状态。
+        *            该版本此函数只显示模拟通道状态。因为前端设备只支持模拟通道。以后版本会加入IP通道状态。
+        * @param iRow              已管理设备列表jTableDeviceManaged的行号
+        * @param lUserID           NET_DVR_Login_V30 的返回值
+        * @param strDeviceInfo     NET_DVR_Login_V30()参数结构
+    */
+    private void getOneDeviceWorkState(int iRow,NativeLong lUserID, HCNetSDK.NET_DVR_DEVICEINFO_V30 strDeviceInfo){
+        
+        try{
+            if (iRow < 0) return;
+            if (iRow > (deviceManagedTableModel.getRowCount() - 1)) return;
+            if (lUserID.intValue() == -1 || strDeviceInfo == null)  {
+                deviceManagedTableModel.setValueAt(sDisconnected, iRow, 6);// "断线"
+                jTableDeviceManaged.repaint();
+                return;
+            }
+
+            deviceManagedTableModel.setValueAt(sNormal, iRow, 6);//网络状态6 "正常"
+            HCNetSDK.NET_DVR_WORKSTATE_V30 m_strWorkState = new HCNetSDK.NET_DVR_WORKSTATE_V30();//调用接口获取设备工作状态
+            boolean getDVRConfigSuc = CommonParas.hCNetSDK.NET_DVR_GetDVRWorkState_V30(lUserID, m_strWorkState);
+            if (getDVRConfigSuc != true){
+                //System.out.println(CommonParas.hCNetSDK.NET_DVR_GetLastError());
+                String AnotherName = (String)deviceManagedTableModel.getValueAt(iRow, 0);
+                CommonParas.showErrorMessage(rootPane, sGetDeviceStatusFaile, AnotherName, sFileName);// "获取设备状态失败！"
+                //JOptionPane.showMessageDialog(this, "获取设备状态失败，错误码：" + CommonParas.hCNetSDK.NET_DVR_GetLastError());
+                return;
+            }
+            //"别名",1"IP",2"端口号",3 "设备序列号", 4"设备状态", 5"安全状态", 6"网络状态", 7"硬盘状态", 8"通道录像状态", 9"通道信号状态", 10"通道硬件状态", 11"总链接路数", 12"刷新"
+            //显示设备状态
+            String sDeviceStatic;
+            switch (m_strWorkState.dwDeviceStatic)
+            {
+                case 0:
+                    sDeviceStatic = sNormal;// "正常"
+                    break;
+                case 1:
+                    sDeviceStatic = sCPUHigh;// "CPU占用率太高,超过85%"
+                     break;
+                case 2:
+                    sDeviceStatic = sHardwareError;// "硬件错误"
+                    break;
+                default:
+                    sDeviceStatic = sUnknown;// "未知"
+                    break;
+            }
+            deviceManagedTableModel.setValueAt(sDeviceStatic, iRow, 4);//设备状态4
+
+            // 8"通道录像状态", 9"通道信号状态", 10"通道硬件状态"
+            String sRecordStatic = "";
+            String sSignalStatic = "";
+            String sHardwareStatic = "";
+            String sLinkNum = "";//链接路数
+            int iTotlaLink = 0;////此处增加总连接数
+            //显示模拟通道状态
+            for (int iChannum = 0; iChannum < strDeviceInfo.byChanNum; iChannum++)
+            {
+
+                String sChanNO = CommonParas.getNodeName(iChannum + strDeviceInfo.byStartChan, false, CommonParas.DVRResourceType.RESTYPE_ENCODINGDVR_CHANNEL_CODE);//"监控点_" + CommonParas.getNumberToTwoBitsStr(iChannum + strDeviceInfo.byStartChan);
+                //是否录像
+                if (0 == m_strWorkState.struChanStatic[iChannum].byRecordStatic)
+                {
+                    sRecordStatic = sRecordStatic + sChanNO + sNoRecording + "\r\n";//不录像；
+                } else
+                {
+                    if (1 == m_strWorkState.struChanStatic[iChannum].byRecordStatic)
+                    {
+                        sRecordStatic = sRecordStatic + sChanNO + sRecording + "\r\n";//录像；
+                    }
+                }
+                //信号状态
+                if (0 == m_strWorkState.struChanStatic[iChannum].bySignalStatic)
+                {
+                    sSignalStatic = sSignalStatic + sChanNO + sNormalColon + "\r\n";//正常；
+                } else
+                {
+                    if (1 == m_strWorkState.struChanStatic[iChannum].bySignalStatic)
+                    {
+                        sSignalStatic = sSignalStatic + sChanNO + sSignalLoss + "\r\n";//信号丢失；
+                    }
+                }
+                //硬件状态
+                if (0 == m_strWorkState.struChanStatic[iChannum].byHardwareStatic)
+                {
+                    sHardwareStatic = sHardwareStatic + sChanNO + sNormalColon + "\r\n";//正常；
+                } else
+                {
+                    if (1 == m_strWorkState.struChanStatic[iChannum].byHardwareStatic)
+                    {
+                        sHardwareStatic = sHardwareStatic + sChanNO + sAbnormal + "\r\n";//异常；
+                    }
+                }
+
+                //连接数
+                sLinkNum = sLinkNum + sChanNO + ":" + m_strWorkState.struChanStatic[iChannum].dwLinkNum + ";";
+                //此处增加总连接数
+                iTotlaLink += m_strWorkState.struChanStatic[iChannum].dwLinkNum;
+            }
+            
+            
+            //显示IP通道状态
+            HCNetSDK.NET_DVR_IPPARACFG m_strIpparaCfg = CommonParas.getStrIpparacfg(iRow, sFileName);
+            //首先获取IP参数,如果IP参数对应通道参数的byEnable为有效,则该通道有效,
+            //再从工作参数结构体中取得相关状态参数,模拟通道号:0-31,IP通道号.32-64
+            if(m_strIpparaCfg != null){
+                for (int iChannum = 0; iChannum < HCNetSDK.MAX_IP_CHANNEL; iChannum++)
+                {
+
+                    if (m_strIpparaCfg.struIPChanInfo[iChannum].byEnable == 1)
+                    {//判断对应IP通道是否有效
+                        String sChanNO = CommonParas.getNodeName(iChannum + strDeviceInfo.byStartChan, true, CommonParas.DVRResourceType.RESTYPE_ENCODINGDVR_CHANNEL_CODE);//"IP监控点_" + CommonParas.getNumberToTwoBitsStr(iChannum + 1);
+                        //newRow.add("IPCamera" + (iChannum + 1));//添加IP通道号
+                        //是否录像参数
+                        if (0 == m_strWorkState.struChanStatic[HCNetSDK.MAX_IP_CHANNEL + iChannum].byRecordStatic)
+                        {
+                            sRecordStatic = sRecordStatic + sChanNO + sNoRecording + "\r\n";//不录像；
+                        } else
+                        {
+                            if (1 == m_strWorkState.struChanStatic[32 + iChannum].byRecordStatic)
+                            {
+                                sRecordStatic = sRecordStatic + sChanNO + sRecording + "\r\n";//录像；
+                            }
+                        }
+                        //信号状态
+                        if (0 == m_strWorkState.struChanStatic[HCNetSDK.MAX_IP_CHANNEL + iChannum].bySignalStatic)
+                        {
+                            sSignalStatic = sSignalStatic + sChanNO + sNormalColon + "\r\n";//正常；
+                        } else
+                        {
+                            if (1 == m_strWorkState.struChanStatic[HCNetSDK.MAX_IP_CHANNEL + iChannum].bySignalStatic)
+                            {
+                                sSignalStatic = sSignalStatic + sChanNO + sSignalLoss + "\r\n";//信号丢失；
+                            }
+                        }
+                        //硬件状态
+                        if (0 == m_strWorkState.struChanStatic[HCNetSDK.MAX_IP_CHANNEL + iChannum].byHardwareStatic)
+                        {
+                            sHardwareStatic = sHardwareStatic + sChanNO + sNormalColon + "\r\n";//正常；
+                        } else
+                        {
+                            if (1 == m_strWorkState.struChanStatic[HCNetSDK.MAX_IP_CHANNEL + iChannum].byHardwareStatic)
+                            {
+                                sHardwareStatic = sHardwareStatic + sChanNO + sAbnormal + "\r\n";//异常；
+                            }
+                        }
+
+                        //连接数
+                        sLinkNum = sLinkNum + sChanNO + ":" + m_strWorkState.struChanStatic[HCNetSDK.MAX_IP_CHANNEL + iChannum].dwIPLinkNum + ";";
+                        //此处增加总连接数
+                        iTotlaLink += m_strWorkState.struChanStatic[HCNetSDK.MAX_IP_CHANNEL + iChannum].dwIPLinkNum;
+
+                    }
+                }
+            }
+            
+            deviceManagedTableModel.setValueAt(sRecordStatic, iRow, 8);//通道录像状态8
+            deviceManagedTableModel.setValueAt(sSignalStatic, iRow, 9);//通道信号状态9
+            deviceManagedTableModel.setValueAt(sHardwareStatic, iRow, 10);//通道硬件状态10
+            //11"总链接路数", 12"刷新"
+            deviceManagedTableModel.setValueAt(""+ iTotlaLink + "\r\n" + sLinkNum, iRow, 11);//"总链接路数"11
+
+            int iVolume = 0;
+            int iFreeSpace = 0;
+            for (int i = 0; i < HCNetSDK.MAX_DISKNUM_V30; i++)
+            {
+
+    //            newRow.add("硬盘" + (i + 1));//添加硬盘号
+                iVolume +=m_strWorkState.struHardDiskStatic[i].dwVolume;
+                iFreeSpace += m_strWorkState.struHardDiskStatic[i].dwFreeSpace;
+    //            newRow.add(m_strWorkState.struHardDiskStatic[i].dwVolume + "");//添加硬盘容量
+    //            newRow.add(m_strWorkState.struHardDiskStatic[i].dwFreeSpace + "");//添加硬盘剩余空间
+    //            if (m_strWorkState.struHardDiskStatic[i].dwVolume != 0)
+    //            {//添加硬盘状态
+    //                switch (m_strWorkState.struHardDiskStatic[i].dwHardDiskStatic)
+    //                {
+    //                    case 0:
+    //                        newRow.add("活动");
+    //                        break;
+    //                    case 1:
+    //                        newRow.add("休眠");
+    //                        break;
+    //                    case 2:
+    //                        newRow.add("不正常");
+    //                        break;
+    //
+    //                    default:
+    //                        break;
+    //                }
+    //            } else
+    //            {
+    //                newRow.add("");//添加文件名信息
+    //            }
+
+            }
+            deviceManagedTableModel.setValueAt(sCapacity + iVolume+sRemainingSpace  + iFreeSpace, iRow, 7);//硬盘状态7 "硬盘容量：""；剩余空间："
+    //        deviceManagedTableModel.fireTableDataChanged();
+            deviceManagedTableModel.fireTableRowsUpdated(iRow,iRow);
+
+            jTableDeviceManaged.repaint();
+        }catch(Exception e)
+        {
+            TxtLogger.append(sFileName, "getOneDeviceWorkState()","读取管理设备列表jTableDeviceManaged中（某一行）某一个管理设备的工作状态过程中，出现错误" + 
+                            "\r\n                       Exception:" + e.toString());   
+       
+        }
+    }
+    
+    /**
+        *函数:      refreshDeviceOnLine
+        *函数描述:  刷新在线设备列表数据
+    */
+    void refreshDeviceOnLine(){
+        try{
+            deviceOnLineTableModel.getDataVector().clear();//清空在线设备列表
+            deviceOnLineTableModel.fireTableDataChanged();
+            jTableDeviceOnLine.repaint();
+            if (list_SADP_DEV_NET_PARAM_JAVA != null) list_SADP_DEV_NET_PARAM_JAVA.clear();
+            //iOnLine = 0;
+            device_SADP_Start();
+        }catch(Exception e)
+        {
+            TxtLogger.append(sFileName, "refreshDeviceOnLine()","刷新在线设备列表数据过程中，出现错误" + 
+                            "\r\n                       Exception:" + e.toString());   
+       
+        }
+    }
+    /**
+        *函数:      SADP_Start
+        *函数描述:  启动SADP在线设备搜索SADP_Start_V30,在该接口设置的回调函数中可以获取得到在线的设备信息
+    */
+    private void device_SADP_Start(){
+        Pointer pUser = null;//ADP_Start_V30函数所用的用户数据指针
+
+//        mSADP_DEVICE_INFO.clear();
+        
+        try {
+//            int iReturn = sadpSDK.SADP_Start_V30(pDEVICE_FIND_CALLBACK) ;
+            int iReturn = sadpSDK.SADP_Start_V30(pDEVICE_FIND_CALLBACK,0,pUser) ;
+            if (iReturn == 1){
+                System.out.println("SADP_Start success");
+            }else {
+                TxtLogger.append(sFileName, "device_SADP_Start()","启动SADP在线设备搜索过程中，出现错误" + 
+                            "\r\n                       错误码：" + sadpSDK.SADP_GetLastError());   
+//                JOptionPane.showMessageDialog(this, "获取设备参数失败！错误码："+ sadpSDK.SADP_GetLastError());
+            }
+        }catch(Exception e){
+            TxtLogger.append(sFileName, "device_SADP_Start()","启动SADP在线设备搜索过程中，出现错误" + 
+                            "\r\n                       Exception:" + e.toString());   
+            CommonParas.showMessage(rootPane, sGetDevParaException, sFileName);// "获取设备参数出现异常！"
+       
+        }
+    }
+    /**
+        *函数:      SADP_Stop
+        *函数描述:  停止SADP在线搜索
+    */
+    private void device_SADP_Stop(){
+
+        try {
+            int iReturn = sadpSDK.SADP_Stop() ;
+            if (iReturn == 1){
+                System.out.println("SADP_Stop success");
+            }
+            else {
+                TxtLogger.append(sFileName, "device_SADP_Stop()","停止SADP在线搜索过程中，出现错误" + 
+                            "\r\n                       错误码：" + sadpSDK.SADP_GetLastError());   
+            }
+        }catch(Exception e)
+        {
+            TxtLogger.append(sFileName, "device_SADP_Stop()","停止SADP在线搜索过程中，出现错误" + 
+                            "\r\n                       Exception:" + e.toString());   
+            CommonParas.showMessage(rootPane, sGetDevParaException, sFileName);// "获取设备参数出现异常！"
+       
+        }
+    }
+    /**
+        *函数:      refreshDeviceResource
+        *函数描述:  刷新设备资源列表数据
+        *@param bIfReload   是否从新生成设备资源列表数据。true从新从数据库调用数据；false只是进行设备资源列表数据的过滤
+    */
+    void refreshDeviceResource(boolean bIfReload,String GroupName,String ResourceTypeCode){
+        try {
+
+            Vector v = deviceResourceTableModel.getDataVector();
+            if (v != null) deviceResourceTableModel.getDataVector().clear();
+            //如果true从新从数据库调用数据
+            if (bIfReload){
+                if (listDeviceGroup != null) listDeviceGroup.clear();
+                //设备分组表中的“节点名0”,对应的“设备别名1”,“组名2”,“设备资源分类3”、“设备序列号4”、对应的“IP地址5”等参数 、
+                //设备分组表中的“接入设备的序列号6”及对应的的“设备别名7”
+                //获取DeviceGroupBean（设备分组表中的“设备序列号”、“节点名”、“组名”、“设备资源分类”、“接入设备的序列号”）-0
+                //对应的“设备别名-1”、“IP地址-2”等参数，及对应的的接入设备的“设备别名-3”
+                listDeviceGroup = DeviceGroupBean.getAllDeviceGroupParaList(this.sFileName);
+            }
+            
+            if (GroupName == null) return;
+            if(listDeviceGroup == null || listDeviceGroup.isEmpty()) return;
+
+            for (int i=0;i<listDeviceGroup.size();i++){
+                
+                ArrayList deviceGroupPara = (ArrayList)listDeviceGroup.get(i);
+                DeviceGroupBean deviceGroupBean = (DeviceGroupBean)deviceGroupPara.get(0);
+                String GroupName2 = deviceGroupBean.getGroupName();//(String)deviceGroupPara.get(2);
+                String ResourceTypeCode2 = deviceGroupBean.getRescourceType();//(String)deviceGroupPara.get(3);
+                if (ResourceTypeCode == null){
+                    //如果选中的是组名
+                    if (GroupName.equals(GroupName2)){
+                        Vector newRow = new Vector();
+                        String AnotherNameJoin = (String)deviceGroupPara.get(3);//(String)deviceGroupPara.get(7);
+                        if (AnotherNameJoin.equals(""))
+                            //newRow.add((String)deviceGroupPara.get(1) + "_" + (String)deviceGroupPara.get(0));
+                            newRow.add((String)deviceGroupPara.get(1) + "_" + deviceGroupBean.getNodename());//(String)deviceGroupPara.get(0));
+                        else
+                            //newRow.add((String)deviceGroupPara.get(1) + "_" + (String)deviceGroupPara.get(7) + "_" + (String)deviceGroupPara.get(0));
+                            newRow.add((String)deviceGroupPara.get(1) + "_" + (String)deviceGroupPara.get(3) + "_" + deviceGroupBean.getNodename());
+                        newRow.add((String)deviceGroupPara.get(2));
+                        newRow.add(deviceGroupBean.getSerialNO());//newRow.add((String)deviceGroupPara.get(4));
+
+                        deviceResourceTableModel.getDataVector().add(newRow);
+                    }
+                }
+                else {
+                    //如果选中的是设备资源类型
+                    if (GroupName.equals(GroupName2) && ResourceTypeCode2.equals(ResourceTypeCode)){
+                        Vector newRow = new Vector();
+                        String AnotherNameJoin = (String)deviceGroupPara.get(3);
+                        if (AnotherNameJoin.equals(""))
+                            newRow.add((String)deviceGroupPara.get(1) + "_" + deviceGroupBean.getNodename());//(String)deviceGroupPara.get(0));
+                        else
+                            newRow.add((String)deviceGroupPara.get(1) + "_" + (String)deviceGroupPara.get(3) + "_" + deviceGroupBean.getNodename());
+                        //newRow.add((String)deviceGroupPara.get(1) + "_" + (String)deviceGroupPara.get(0));
+                        newRow.add((String)deviceGroupPara.get(2));
+                        newRow.add(deviceGroupBean.getSerialNO());//newRow.add((String)deviceGroupPara.get(4));
+
+                        deviceResourceTableModel.getDataVector().add(newRow);
+                    }
+                }
+                                
+            }
+            deviceResourceTableModel.fireTableStructureChanged();
+            
+            jTableDeviceResource.repaint();
+
+        }catch(Exception e)
+        {
+            TxtLogger.append(this.sFileName, "refreshDeviceResource()","系统在刷新管理设备的资源列表过程中，出现错误" + 
+                            "\r\n                       Exception:" + e.toString());   
+        }
+    }
+    
+    /**
+        *函数:      refeshDeviceParaList
+        *函数描述:  重新刷新已管理设备参数表的Bean列表
+    */
+//    private void refeshDeviceParaList(){
+//        if (listDeviceparaBean != null ) listDeviceparaBean.clear();//已管理设备的序列号数组
+//        listDeviceparaBean = DeviceParaBean.getDeviceParaList(this.sFileName);
+//    }
+    /**
+        *函数:      refreshDeviceOnLineIfMagaged
+        *函数描述:  重新刷新在线设备列表中的的设备的是否已管理状态
+    */
+    private void refreshDeviceOnLineIfMagaged(){
+        try{
+            int iRowCount = deviceOnLineTableModel.getRowCount();
+            if (iRowCount == 0) return;
+            for (int i=0;i<iRowCount;i++){
+                String sIfManaged = CommonParas.getIfManaged((String) deviceOnLineTableModel.getValueAt(i, 7),sFileName)?sYes:sNo ;//根据7“序列号”获得是否已管理状态
+                deviceOnLineTableModel.setValueAt(sIfManaged, i, 6);//是否已管理 
+            }
+            deviceOnLineTableModel.fireTableDataChanged();
+            jTableDeviceOnLine.repaint();
+        }catch(Exception e)
+        {
+            TxtLogger.append(this.sFileName, "refreshDeviceOnLineIfMagaged()","系统在重新刷新在线设备列表中的的设备的是否已管理状态过程中，出现错误" + 
+                            "\r\n                       Exception:" + e.toString());   
+        }
+    }
+    
+    /**
+        *函数:      getResourceTypeCode
+        *函数描述:  根据设备资源类型名称获得对应的代码
+        *@param ResourceTypeName   设备资源类型名称
+        *@return    String  设备资源类型所对应的代码
+    */
+    private String getResourceTypeCode(String ResourceTypeName){
+        try {
+            String ResourceTypeCode = null;
+            if (ResourceTypeName == null || ResourceTypeName.equals("")) return null;
+            for (int i=0;i<listResourceCodesBean.size();i++){
+                CodesBean codesBean = listResourceCodesBean.get(i);
+                if (ResourceTypeName.equals(codesBean.getCodename())){
+                    return codesBean.getCode();
+                }
+            }
+            return ResourceTypeCode;
+        }catch(Exception e)
+        {
+            TxtLogger.append(this.sFileName, "getResourceTypeCode()","系统在根据设备资源类型名称获得对应的代码过程中，出现错误" + 
+                            "\r\n                       Exception:" + e.toString());   
+            return null;
+        }
+    }
+    
+    /**
+        *函数:      getDeviceTypeCode
+        *函数描述:  根据设备类型名称获得对应的代码
+        *@param DeviceTypeName   设备类型名称
+        *@return    String  设备类型类型所对应的代码
+    */
+    private String getDeviceTypeCode(String DeviceTypeName){
+        try {
+            String ResourceTypeCode = null;
+            if (DeviceTypeName == null || DeviceTypeName.equals("")) return null;
+            for (int i=0;i<listDeviceCodesBean.size();i++){
+                CodesBean codesBean = listDeviceCodesBean.get(i);
+                if (DeviceTypeName.equals(codesBean.getCodename())){
+                    return codesBean.getCode();
+                }
+            }
+            return ResourceTypeCode;
+        }catch(Exception e){
+            TxtLogger.append(this.sFileName, "getDeviceTypeCode()","系统在根据设备类型名称获得对应的代码过程中，出现错误" + 
+                            "\r\n                       Exception:" + e.toString());   
+            return null;
+        }
+    }
+
+    //返回此列表中首次出现的指定元素的索引，或如果此列表不包含元素，则返回 -1。
+    public int getIfExistGroupName(String GroupName){
+        int Index = listDeviceGroupNames.indexOf(GroupName);
+        return Index;
+    }
+    /**
+        *函数:      getSADP_DEV_NET_PARAM_JAVA
+        *函数描述:  根据序列号获得相应的设备网络参数结构体数据
+        *@param SerialNO   该设备的序列号
+        *@return    SADP_DEV_NET_PARAM_JAVA  成功，返回序列号相应的设备网络参数结构体数据；失败，返回null
+    */
+    public Sadp.SADP_DEV_NET_PARAM_JAVA getSADP_DEV_NET_PARAM_JAVA(String SerialNO){
+        try{
+            if (SerialNO == null || SerialNO.equals("")) return null;
+            Sadp.SADP_DEV_NET_PARAM_JAVA msSADP_DEV_NET_PARAM_JAVA = null;
+            for (int i=0;i<list_SADP_DEV_NET_PARAM_JAVA.size();i++){
+                Sadp.SADP_DEV_NET_PARAM_JAVA msSADP_DEV_NET_PARAM_JAVA2 = (Sadp.SADP_DEV_NET_PARAM_JAVA)list_SADP_DEV_NET_PARAM_JAVA.get(i); 
+                if (msSADP_DEV_NET_PARAM_JAVA2.getSerialNO().equals(SerialNO))  {
+                    msSADP_DEV_NET_PARAM_JAVA = msSADP_DEV_NET_PARAM_JAVA2;
+                    break;
+                }
+            }
+            return msSADP_DEV_NET_PARAM_JAVA;
+        }catch(Exception e)
+        {
+            TxtLogger.append(this.sFileName, "getSADP_DEV_NET_PARAM_JAVA()","系统在根据序列号获得相应的设备网络参数结构体数据过程中，出现错误" + 
+                            "\r\n                       Exception:" + e.toString());   
+            return null;
+        }
+    }
+    
+    /**
+        *函数:      resizeTable
+        *函数描述:  调整列表的列宽度
+        * @param jsp
+        * @param jg_table
+        * @param bool true界面显示后，如果父容器大小改变，使用实际大小而不是首选大小；false父容器大小为首选大小
+    */
+    private void resizeTable(JScrollPane jsp,JTable jg_table,boolean bool) {
+        Dimension containerwidth = null;
+        try{
+            if (!bool) {
+                //初始化时，父容器大小为首选大小，实际大小为0
+                containerwidth = jsp.getPreferredSize();
+            } else {
+                //界面显示后，如果父容器大小改变，使用实际大小而不是首选大小
+                containerwidth = jsp.getSize();
+            }
+            //计算表格总体宽度 getTable().
+            int allwidth = jg_table.getIntercellSpacing().width;
+            for (int j = 0; j < jg_table.getColumnCount(); j++) {
+                //计算该列中最长的宽度
+                int max = 0;
+                for (int i = 0; i < jg_table.getRowCount(); i++) {
+                    int width = jg_table.getCellRenderer(i, j).getTableCellRendererComponent(jg_table, jg_table.getValueAt(i, j), false,false, i, j).getPreferredSize().width;
+                    if (width > max) {
+                        max = width;
+                    }
+                }
+                //计算表头的宽度
+                int headerwidth = jg_table.getTableHeader().getDefaultRenderer()
+                        .getTableCellRendererComponent(jg_table, jg_table.getColumnModel(). getColumn(j).getIdentifier(), false, false,-1, j).getPreferredSize().width;
+                //列宽至少应为列头宽度
+                max += headerwidth;
+                //设置列宽
+                jg_table.getColumnModel().getColumn(j).setPreferredWidth(max);
+                //给表格的整体宽度赋值，记得要加上单元格之间的线条宽度1个像素
+                allwidth += max + jg_table.getIntercellSpacing().width;
+            }
+            allwidth += jg_table.getIntercellSpacing().width;
+            //如果表格实际宽度大小父容器的宽度，则需要我们手动适应；否则让表格自适应
+            if (allwidth > containerwidth.width) {
+                jg_table.setAutoResizeMode(JTable.AUTO_RESIZE_OFF);
+            } else {
+                jg_table.setAutoResizeMode(JTable.AUTO_RESIZE_SUBSEQUENT_COLUMNS);
+            }
+        }catch(Exception e)
+        {
+            TxtLogger.append(this.sFileName, "resizeTable()","系统在调整列表的列宽度过程中，出现错误" + 
+                            "\r\n                       Exception:" + e.toString());   
+        }
+    }
+    
+    /**
+        * 函数:      modifyLocales
+        * 函数描述:  根据系统语言设置窗口的控件信息和消息文本
+    */
+    private void modifyLocales(){
+        
+        if (CommonParas.SysParas.ifChinese) return;//如果是中文，则不做任何操作
+
+        
+        MyLocales Locales = CommonParas.SysParas.sysLocales;
+        
+        //信息显示
+        sResourceTableTitle = Locales.getString("JInFrameDeviceManage", "JInFrameDeviceManage.sResourceTableTitle").split(",");  //设备资源,IP,设备序列号
+        sOnLineTableTitle = Locales.getString("JInFrameDeviceManage", "JInFrameDeviceManage.sOnLineTableTitle").split(",");  //IP地址,设备类型,主控版本,安全状态,服务端口,开始时间,是否已管理,设备序列号
+        sManagedTableTitle = Locales.getString("JInFrameDeviceManage", "JInFrameDeviceManage.sManagedTableTitle").split(",");  //别名,IP地址,端口号,设备序列号,设备状态,安全状态,网络状态,硬盘状态,通道录像状态,通道信号状态,通道硬件状态,总链接路数,刷新
+        sTitle = Locales.getString("JInFrameDeviceManage", "JInFrameDeviceManage.sTitle");  //设备管理
+        sDevice = Locales.getString("JInFrameDeviceManage", "JInFrameDeviceManage.sDevice");  //设备
+        sGroup = Locales.getString("JInFrameDeviceManage", "JInFrameDeviceManage.sGroup");  //分组
+        sResource = Locales.getString("JInFrameDeviceManage", "JInFrameDeviceManage.sResource");  //资源
+        sTitle2 = Locales.getString("JInFrameDeviceManage", "JInFrameDeviceManage.sTitle2");  //设备管理员密码修改
+        sFilter = Locales.getString("JInFrameDeviceManage", "JInFrameDeviceManage.sFilter");  //过滤
+        sRemind = Locales.getString("JInFrameDeviceManage", "JInFrameDeviceManage.sRemind");  //提醒
+        sAdd = Locales.getString("JInFrameDeviceManage", "JInFrameDeviceManage.sAdd");  //添加
+        sDel = Locales.getString("JInFrameDeviceManage", "JInFrameDeviceManage.sDel");  //删除
+        sModify = Locales.getString("JInFrameDeviceManage", "JInFrameDeviceManage.sModify");  //修改
+        sExit = Locales.getString("JInFrameDeviceManage", "JInFrameDeviceManage.sExit");  //退出
+        sAddGroup = Locales.getString("JInFrameDeviceManage", "JInFrameDeviceManage.sAddGroup");  //添加分组
+        sAddGroupFail = Locales.getString("JInFrameDeviceManage", "JInFrameDeviceManage.sAddGroupFail");  //添加分组失败
+        sImportGroup = Locales.getString("JInFrameDeviceManage", "JInFrameDeviceManage.sImportGroup");  //导入分组
+        sSelectNeededDelGroup = Locales.getString("JInFrameDeviceManage", "JInFrameDeviceManage.sSelectNeededDelGroup");  //请先选中要删除的分组！
+        sDelGroup = Locales.getString("JInFrameDeviceManage", "JInFrameDeviceManage.sDelGroup");  //删除分组
+        sCanNotDelGroup = Locales.getString("JInFrameDeviceManage", "JInFrameDeviceManage.sCanNotDelGroup");  //无法删除该分组！
+        sRealDelGroup = Locales.getString("JInFrameDeviceManage", "JInFrameDeviceManage.sRealDelGroup");  //分组及分组下的资源都将被删除，真的要继续？
+        sDelGroupSucc = Locales.getString("JInFrameDeviceManage", "JInFrameDeviceManage.sDelGroupSucc");  //成功删除该分组！
+        sDelGroupFail = Locales.getString("JInFrameDeviceManage", "JInFrameDeviceManage.sDelGroupFail");  //删除分组失败
+        sAddDevType = Locales.getString("JInFrameDeviceManage", "JInFrameDeviceManage.sAddDevType");  //添加设备类型
+        sAddDevTypeSucc = Locales.getString("JInFrameDeviceManage", "JInFrameDeviceManage.sAddDevTypeSucc");  //成功添加新的设备类型！
+        sAddDevTypeFail = Locales.getString("JInFrameDeviceManage", "JInFrameDeviceManage.sAddDevTypeFail");  //添加设备类型失败
+        sSelectNeededDelDevTye = Locales.getString("JInFrameDeviceManage", "JInFrameDeviceManage.sSelectNeededDelDevTye");  //请先选中要删除的设备类型！
+        sDelDevType = Locales.getString("JInFrameDeviceManage", "JInFrameDeviceManage.sDelDevType");  //删除设备类型
+        sDelDevTypeFail = Locales.getString("JInFrameDeviceManage", "JInFrameDeviceManage.sDelDevTypeFail");  //删除设备类型失败
+        sDeviceOfTypeExist = Locales.getString("JInFrameDeviceManage", "JInFrameDeviceManage.sDeviceOfTypeExist");  //已经存在该该类型的设备，该设备类型不能删除！
+        sModifiedDevParas = Locales.getString("JInFrameDeviceManage", "JInFrameDeviceManage.sModifiedDevParas");  //修改管理设备参数
+        sModifiedDevParasSucc = Locales.getString("JInFrameDeviceManage", "JInFrameDeviceManage.sModifiedDevParasSucc");  //已成功修改了该设备参数！
+        sModifiedDevParasFail = Locales.getString("JInFrameDeviceManage", "JInFrameDeviceManage.sModifiedDevParasFail");  //修改管理设备参数失败
+        sNotSelectedDev = Locales.getString("JInFrameDeviceManage", "JInFrameDeviceManage.sNotSelectedDev");  //没有选中任何设备！
+        sDelDev = Locales.getString("JInFrameDeviceManage", "JInFrameDeviceManage.sDelDev");  //删除设备
+        sRealDelDev = Locales.getString("JInFrameDeviceManage", "JInFrameDeviceManage.sRealDelDev");  //确定要删除该设备？
+        sDelDevSucc = Locales.getString("JInFrameDeviceManage", "JInFrameDeviceManage.sDelDevSucc");  //已删除选中设备！
+        sDelDevFail = Locales.getString("JInFrameDeviceManage", "JInFrameDeviceManage.sDelDevFail");  //删除设备失败
+        sRegisterDevice = Locales.getString("JInFrameDeviceManage", "JInFrameDeviceManage.sRegisterDevice");  //注册设备
+        sRegisterDeviceSucc = Locales.getString("JInFrameDeviceManage", "JInFrameDeviceManage.sRegisterDeviceSucc");  //已成功注册该设备并添加到管理列表中！
+        sRegisterDeviceFail = Locales.getString("JInFrameDeviceManage", "JInFrameDeviceManage.sRegisterDeviceFail");  //注册设备失败
+        sDevAlreadyRegistered = Locales.getString("JInFrameDeviceManage", "JInFrameDeviceManage.sDevAlreadyRegistered");  //此设备已经注册管理！
+        sDevAddrConflict = Locales.getString("JInFrameDeviceManage", "JInFrameDeviceManage.sDevAddrConflict");  //此设备存在地址冲突！
+        sPleaseActivate = Locales.getString("JInFrameDeviceManage", "JInFrameDeviceManage.sPleaseActivate");  //此设备未激活，请先激活！
+        sModifyNetworkData = Locales.getString("JInFrameDeviceManage", "JInFrameDeviceManage.sModifyNetworkData");  //修改设备网络参数
+        sRealModifyNetworkData = Locales.getString("JInFrameDeviceManage", "JInFrameDeviceManage.sRealModifyNetworkData");  //此设备已经注册。如果修改网络数据，还需要再修改已管理设备的数据，真的要继续？
+        sModifyNetworkDataSucc = Locales.getString("JInFrameDeviceManage", "JInFrameDeviceManage.sModifyNetworkDataSucc");  //已成功修改了该设备网络参数！
+        sModifyNetworkDataFail = Locales.getString("JInFrameDeviceManage", "JInFrameDeviceManage.sModifyNetworkDataFail");  //修改设备网络参数失败
+        sActivateDevice = Locales.getString("JInFrameDeviceManage", "JInFrameDeviceManage.sActivateDevice");  //激活设备
+        sNoNeedActivate = Locales.getString("JInFrameDeviceManage", "JInFrameDeviceManage.sNoNeedActivate");  //此设备已经激活，无需再进行激活！
+        sPleaseEnterPassword = Locales.getString("JInFrameDeviceManage", "JInFrameDeviceManage.sPleaseEnterPassword");  //请输入设备密码：
+        sActivateDeviceSucc = Locales.getString("JInFrameDeviceManage", "JInFrameDeviceManage.sActivateDeviceSucc");  //该设备已经成功激活！
+        sActivateDeviceFail = Locales.getString("JInFrameDeviceManage", "JInFrameDeviceManage.sActivateDeviceFail");  //激活设备失败
+        sActivateDeviceNotSucc = Locales.getString("JInFrameDeviceManage", "JInFrameDeviceManage.sActivateDeviceNotSucc");  //该设备未能成功激活！
+        sDelGroupResource = Locales.getString("JInFrameDeviceManage", "JInFrameDeviceManage.sDelGroupResource");  //删除分组资源
+        sDelGroupResourceFail = Locales.getString("JInFrameDeviceManage", "JInFrameDeviceManage.sDelGroupResourceFail");  //删除分组资源失败
+        sNoResourceSelected = Locales.getString("JInFrameDeviceManage", "JInFrameDeviceManage.sNoResourceSelected");  //没有选中任何设备资源！
+        sModifyDevAdminPass = Locales.getString("JInFrameDeviceManage", "JInFrameDeviceManage.sModifyDevAdminPass");  //修改设备管理员密码
+        sNeedSuperAdmin = Locales.getString("JInFrameDeviceManage", "JInFrameDeviceManage.sNeedSuperAdmin");  //只有超级管理员才能修改设备密码！
+        sPasswordNoEmpty = Locales.getString("JInFrameDeviceManage", "JInFrameDeviceManage.sPasswordNoEmpty");  //密码输入不能为空！
+        sPassNotSame = Locales.getString("JInFrameDeviceManage", "JInFrameDeviceManage.sPassNotSame");  //两次输入的密码不一致！
+        sSuperAdminPassWrong = Locales.getString("JInFrameDeviceManage", "JInFrameDeviceManage.sSuperAdminPassWrong");  //系统超级管理员密码错误！
+        sOriginalPassError = Locales.getString("JInFrameDeviceManage", "JInFrameDeviceManage.sOriginalPassError");  //原密码输入错误
+        sGetDevUserParaFail = Locales.getString("JInFrameDeviceManage", "JInFrameDeviceManage.sGetDevUserParaFail");  //获取设备用户参数信息失败
+        sModifyPasswordFail = Locales.getString("JInFrameDeviceManage", "JInFrameDeviceManage.sModifyPasswordFail");  //密码修改失败
+        sModifyPasswordSucc = Locales.getString("JInFrameDeviceManage", "JInFrameDeviceManage.sModifyPasswordSucc");  //密码修改成功！
+        sRefreshManagedDevs = Locales.getString("JInFrameDeviceManage", "JInFrameDeviceManage.sRefreshManagedDevs");  //刷新管理设备信息
+        sManagedNums = Locales.getString("JInFrameDeviceManage", "JInFrameDeviceManage.sManagedNums");  //管理设备({0})
+        sRefreshOneDev = Locales.getString("JInFrameDeviceManage", "JInFrameDeviceManage.sRefreshOneDev");  //刷新“{0}”信息
+        sRefreshOnLineDevs = Locales.getString("JInFrameDeviceManage", "JInFrameDeviceManage.sRefreshOnLineDevs");  //刷新在线设备信息
+        sOnLineNums = Locales.getString("JInFrameDeviceManage", "JInFrameDeviceManage.sOnLineNums");  //在线设备({0})
+        sGetDevParaException = Locales.getString("JInFrameDeviceManage", "JInFrameDeviceManage.sGetDevParaException");  //获取设备参数出现异常！
+        sNotActive = Locales.getString("JInFrameDeviceManage", "JInFrameDeviceManage.sNotActive");  //未激活
+        sActivated = Locales.getString("JInFrameDeviceManage", "JInFrameDeviceManage.sActivated");  //已激活
+        sYes = Locales.getString("JInFrameDeviceManage", "JInFrameDeviceManage.sYes");  //是
+        sNo = Locales.getString("JInFrameDeviceManage", "JInFrameDeviceManage.sNo");  //否
+        sDisconnected = Locales.getString("JInFrameDeviceManage", "JInFrameDeviceManage.sDisconnected");  //断线
+        sNormal = Locales.getString("JInFrameDeviceManage", "JInFrameDeviceManage.sNormal");  //正常
+        sGetDeviceStatusFaile = Locales.getString("JInFrameDeviceManage", "JInFrameDeviceManage.sGetDeviceStatusFaile");  //获取设备状态失败！
+        sCPUHigh = Locales.getString("JInFrameDeviceManage", "JInFrameDeviceManage.sCPUHigh");  //CPU占用率太高，超过85%
+        sHardwareError = Locales.getString("JInFrameDeviceManage", "JInFrameDeviceManage.sHardwareError");  //硬件错误
+        sUnknown = Locales.getString("JInFrameDeviceManage", "JInFrameDeviceManage.sUnknown");  //未知
+        sNoRecording = Locales.getString("JInFrameDeviceManage", "JInFrameDeviceManage.sNoRecording");  //不录像；
+        sRecording = Locales.getString("JInFrameDeviceManage", "JInFrameDeviceManage.sRecording");  //录像；
+        sNormalColon = Locales.getString("JInFrameDeviceManage", "JInFrameDeviceManage.sNormalColon");  //正常；
+        sSignalLoss = Locales.getString("JInFrameDeviceManage", "JInFrameDeviceManage.sSignalLoss");  //信号丢失；
+        sAbnormal = Locales.getString("JInFrameDeviceManage", "JInFrameDeviceManage.sAbnormal");  //异常；
+        sCapacity = Locales.getString("JInFrameDeviceManage", "JInFrameDeviceManage.sCapacity");  //硬盘容量：
+        sRemainingSpace = Locales.getString("JInFrameDeviceManage", "JInFrameDeviceManage.sRemainingSpace");  //；剩余空间：
+        //标签和按钮显示
+        jLabelOriginalPassword.setText(Locales.getString("JInFrameDeviceManage", "JInFrameDeviceManage.jLabelOriginalPassword"));  //请输入原密码：
+        jLabelNewPassword.setText(Locales.getString("JInFrameDeviceManage", "JInFrameDeviceManage.jLabelNewPassword"));  //请输入新密码：
+        jLabelNewPassword2.setText(Locales.getString("JInFrameDeviceManage", "JInFrameDeviceManage.jLabelNewPassword2"));  //新密码确认：
+        jLabelAdminPassword.setText(Locales.getString("JInFrameDeviceManage", "JInFrameDeviceManage.jLabelAdminPassword"));  //系统超级管理员密码：
+        jButtonOk.setText(Locales.getString("JInFrameDeviceManage", "JInFrameDeviceManage.jButtonOk"));  //确  定
+        jButtonCancel.setText(Locales.getString("JInFrameDeviceManage", "JInFrameDeviceManage.jButtonCancel"));  //取  消
+        jButtonRegisterDevice.setText(Locales.getString("JInFrameDeviceManage", "JInFrameDeviceManage.jButtonRegisterDevice"));  //注册设备
+        jButtonManagedRefresh.setText(Locales.getString("JInFrameDeviceManage", "JInFrameDeviceManage.jButtonManagedRefresh"));  //刷新所有设备
+        jButtonInsertMagaged.setText(Locales.getString("JInFrameDeviceManage", "JInFrameDeviceManage.jButtonInsertMagaged"));  //注册管理
+        jButtonModifyPass.setText(Locales.getString("JInFrameDeviceManage", "JInFrameDeviceManage.jButtonModifyPass"));  //密码修改
+        jButtonActive.setText(Locales.getString("JInFrameDeviceManage", "JInFrameDeviceManage.jButtonActive"));  //激活
+        jButtonOnLineRefresh.setText(Locales.getString("JInFrameDeviceManage", "JInFrameDeviceManage.jButtonOnLineRefresh"));  //刷新（每60秒自动刷新）
+        jButtonImport.setText(Locales.getString("JInFrameDeviceManage", "JInFrameDeviceManage.jButtonImport"));  //导入
+
+
+        jButtonGroupInsert.setToolTipText(sAddGroup); //添加分组
+        jButtonGroupDelete.setToolTipText(sDelGroup); //删除分组
+        jButtonInsertDeviceType.setToolTipText(sAddDevType); //添加设备类型
+        jButtonDeleteDeviceType.setToolTipText(sDelDevType); //删除设备类型
+        jTextFieldFilterManaged.setText(sFilter); //过滤
+        jTextFieldFilterOnLine.setText(sFilter); //过滤
+        jTextFieldFilterResource.setText(sFilter); //过滤
+        jLabelManaged.setText(MessageFormat.format(sManagedNums, 0)); //管理设备（0）
+        jLabelOnLine.setText(MessageFormat.format(sOnLineNums, 0)); //在线设备（0）
+        jButtonInsertDeviceType.setText(sAdd); //添加
+        jButtonDeleteDeviceType.setText(sDel); //删除
+        jButtonGroupInsert.setText(sAdd); //添加
+        jButtonGroupDelete.setText(sDel); //删除
+        jButtonDeleteManaged.setText(sDel); //删除
+        jButtonDelteteResource.setText(sDel); //删除
+        jButtonModify.setText(sModify); //修改
+        jButtonModifyOnLine.setText(sModify); //修改
+        jButtonExit.setText(sExit); //退出
+        jButtonExit1.setText(sExit); //退出
+        jTabbedPaneDVR.setTitleAt(0, " "+sDevice); //设  备
+        jTabbedPaneDVR.setTitleAt(1, " "+sGroup); //分  组
+        jLabelDevice.setText(sDevice); //设 备
+        jLabelResouce.setText(sResource); //资 源
+    }
+    
+    // Variables declaration - do not modify//GEN-BEGIN:variables
+    private javax.swing.JButton jButtonActive;
+    private javax.swing.JButton jButtonCancel;
+    private javax.swing.JButton jButtonDeleteDeviceType;
+    private javax.swing.JButton jButtonDeleteManaged;
+    private javax.swing.JButton jButtonDelteteResource;
+    private javax.swing.JButton jButtonExit;
+    private javax.swing.JButton jButtonExit1;
+    private javax.swing.JButton jButtonExit2;
+    private javax.swing.JButton jButtonGroupDelete;
+    private javax.swing.JButton jButtonGroupInsert;
+    private javax.swing.JButton jButtonImport;
+    private javax.swing.JButton jButtonInsertDeviceType;
+    private javax.swing.JButton jButtonInsertMagaged;
+    private javax.swing.JButton jButtonManagedRefresh;
+    private javax.swing.JButton jButtonModify;
+    private javax.swing.JButton jButtonModifyOnLine;
+    private javax.swing.JButton jButtonModifyPass;
+    private javax.swing.JButton jButtonOk;
+    private javax.swing.JButton jButtonOnLineRefresh;
+    private javax.swing.JButton jButtonRegisterDevice;
+    private javax.swing.JDialog jDialogDVRPassModify;
+    private javax.swing.JLabel jLabelAdminPassword;
+    private javax.swing.JLabel jLabelDevice;
+    private javax.swing.JLabel jLabelManaged;
+    private javax.swing.JLabel jLabelNewPassword;
+    private javax.swing.JLabel jLabelNewPassword2;
+    private javax.swing.JLabel jLabelOnLine;
+    private javax.swing.JLabel jLabelOriginalPassword;
+    private javax.swing.JLabel jLabelResouce;
+    private javax.swing.JLabel jLabelTitle;
+    private javax.swing.JPanel jPanel1;
+    private javax.swing.JPanel jPanel10;
+    private javax.swing.JPanel jPanel2;
+    private javax.swing.JPanel jPanel3;
+    private javax.swing.JPanel jPanel4;
+    private javax.swing.JPanel jPanel5;
+    private javax.swing.JPanel jPanel6;
+    private javax.swing.JPanel jPanel7;
+    private javax.swing.JPanel jPanel8;
+    private javax.swing.JPanel jPanel9;
+    private javax.swing.JPanel jPanelCenter;
+    private javax.swing.JPanel jPanelFirst;
+    private javax.swing.JPanel jPanelLast;
+    private javax.swing.JPasswordField jPasswordFieldNew1;
+    private javax.swing.JPasswordField jPasswordFieldNew2;
+    private javax.swing.JPasswordField jPasswordFieldOld;
+    private javax.swing.JPasswordField jPasswordFieldSysAdmin;
+    private javax.swing.JScrollPane jScrollPaneMagaged;
+    private javax.swing.JScrollPane jScrollPaneOnLine;
+    private javax.swing.JScrollPane jScrollPaneResource;
+    private javax.swing.JScrollPane jScrollPaneTreeDevice;
+    private javax.swing.JScrollPane jScrollPaneTreeResource;
+    private javax.swing.JSplitPane jSplitPaneDVRs;
+    private javax.swing.JSplitPane jSplitPaneTreeDVR;
+    private javax.swing.JSplitPane jSplitPaneTreeDVRResource;
+    private javax.swing.JTabbedPane jTabbedPaneDVR;
+    private javax.swing.JTable jTableDeviceManaged;
+    private javax.swing.JTable jTableDeviceOnLine;
+    private javax.swing.JTable jTableDeviceResource;
+    private javax.swing.JTextField jTextFieldFilterManaged;
+    private javax.swing.JTextField jTextFieldFilterOnLine;
+    private javax.swing.JTextField jTextFieldFilterResource;
+    private javax.swing.JTree jTreeDevice;
+    private javax.swing.JTree jTreeResource;
+    // End of variables declaration//GEN-END:variables
+
+    private String[] sResourceTableTitle = new String [] { "设备资源", "IP", "设备序列号"};
+    private String[] sOnLineTableTitle = new String [] {"IP地址", "设备类型", "主控版本", "安全状态", "服务端口", "开始时间", "是否已管理", "设备序列号"};
+    private String[] sManagedTableTitle = new String[] {"别名","IP地址","端口号", "设备序列号", "设备状态", "安全状态", "网络状态", "硬盘状态", "通道录像状态", "通道信号状态", "通道硬件状态", "总链接路数", "刷新"};
+    private String sTitle = "设备管理";
+    private String sDevice = "设备";
+    private String sGroup = "分组";
+    private String sResource = "资源";
+    private String sTitle2 = "设备管理员密码修改";
+    private String sFilter = "过滤";
+    private String sRemind = "提醒";
+    private String sAdd = "添加";
+    private String sDel = "删除";
+    private String sModify = "修改";
+    private String sExit = "退出";
+    private String sAddGroup = "添加分组";
+    private String sAddGroupFail = "添加分组失败";
+    private String sImportGroup = "导入分组";
+    private String sDelGroup = "删除分组";
+    private String sCanNotDelGroup = "无法删除该分组！";
+    private String sRealDelGroup = "分组及分组下的资源都将被删除，真的要继续？";
+    private String sDelGroupSucc = "成功删除该分组！";
+    private String sDelGroupFail = "删除分组失败";
+    private String sAddDevType = "添加设备类型";
+    private String sAddDevTypeSucc = "成功添加新的设备类型！";
+    private String sAddDevTypeFail = "添加设备类型失败";
+    private String sSelectNeededDelDevTye = "请先选中要删除的设备类型！";
+    private String sDelDevType = "删除设备类型";
+    private String sDelDevTypeFail = "删除设备类型失败";
+    private String sDeviceOfTypeExist = "已经存在该该类型的设备，该设备类型不能删除！";
+    private String sModifiedDevParas = "修改管理设备参数";
+    private String sModifiedDevParasSucc = "已成功修改了该设备参数！";
+    private String sModifiedDevParasFail = "修改管理设备参数失败";
+    private String sNotSelectedDev = "没有选中任何设备！";
+    private String sSelectNeededDelGroup = "请先选中要删除的分组！";
+    private String sDelDev = "删除设备";
+    private String sRealDelDev = "确定要删除该设备？";
+    private String sDelDevSucc = "已删除选中设备！";
+    private String sDelDevFail = "删除设备失败";
+    private String sRegisterDevice = "注册设备";
+    private String sRegisterDeviceSucc = "已成功注册该设备并添加到管理列表中！";
+    private String sRegisterDeviceFail = "注册设备失败";
+    private String sDevAlreadyRegistered = "此设备已经注册管理！";
+    private String sDevAddrConflict = "此设备存在地址冲突！";
+    private String sPleaseActivate = "此设备未激活，请先激活！";
+    private String sModifyNetworkData = "修改设备网络参数";
+    private String sRealModifyNetworkData = "此设备已经注册。如果修改网络数据，还需要再修改已管理设备的数据，真的要继续？";
+    private String sModifyNetworkDataSucc = "已成功修改了该设备网络参数！";
+    private String sModifyNetworkDataFail = "修改设备网络参数失败";
+    private String sActivateDevice = "激活设备";
+    private String sNoNeedActivate = "此设备已经激活，无需再进行激活！";
+    private String sPleaseEnterPassword = "请输入设备密码：";
+    private String sActivateDeviceSucc = "该设备已经成功激活！";
+    private String sActivateDeviceFail = "激活设备失败";
+    private String sActivateDeviceNotSucc = "该设备未能成功激活！";
+    private String sDelGroupResource = "删除分组资源";
+    private String sDelGroupResourceFail = "删除分组资源失败";
+    private String sNoResourceSelected = "没有选中任何设备资源！";
+    private String sModifyDevAdminPass = "修改设备管理员密码";
+    private String sNeedSuperAdmin = "只有超级管理员才能修改设备密码！";
+    private String sPasswordNoEmpty = "密码输入不能为空！";
+    private String sPassNotSame = "两次输入的密码不一致！";
+    private String sSuperAdminPassWrong = "系统超级管理员密码错误！";
+    private String sOriginalPassError = "原密码输入错误";
+    private String sGetDevUserParaFail = "获取设备用户参数信息失败";
+    private String sModifyPasswordFail = "密码修改失败";
+    private String sModifyPasswordSucc = "密码修改成功！";
+    private String sRefreshManagedDevs = "刷新管理设备信息";
+    private String sManagedNums = "管理设备({0})";
+    private String sRefreshOneDev = "刷新“{0}”信息";
+    private String sRefreshOnLineDevs = "刷新在线设备信息";
+    private String sOnLineNums = "在线设备({0})";
+    private String sGetDevParaException = "获取设备参数出现异常！";
+    private String sNotActive = "未激活";
+    private String sActivated = "已激活";
+    private String sYes = "是";
+    private String sNo = "否";
+    private String sDisconnected = "断线";
+    private String sNormal = "正常";
+    private String sGetDeviceStatusFaile = "获取设备状态失败！";
+    private String sCPUHigh = "CPU占用率太高，超过85%";
+    private String sHardwareError = "硬件错误";
+    private String sUnknown = "未知";
+    private String sNoRecording = "不录像；";
+    private String sRecording = "录像；";
+    private String sNormalColon = "正常；";
+    private String sSignalLoss = "信号丢失；";
+    private String sAbnormal = "异常；";
+    private String sCapacity = "硬盘容量：";
+    private String sRemainingSpace = "；剩余空间：";
+
+    
+    /******************************************************************************
+        *内部类:   PDEVICE_FIND_CALLBACK
+        *启动SADP在线设备搜索SADP_Start_V30的回调函数
+        ******************************************************************************/
+    private class PDEVICE_FIND_CALLBACK implements Sadp.PDEVICE_FIND_CALLBACK{
+        int iOnLine = 0;//在线设备的数量
+        @Override
+        public void invoke(Sadp.SADP_DEVICE_INFO lpDeviceInfo,Pointer pUserData){
+
+            
+            try {
+                
+                Sadp.SADP_DEV_NET_PARAM_JAVA msSADP_DEV_NET_PARAM_JAVA = new Sadp.SADP_DEV_NET_PARAM_JAVA();
+                
+                //下面数据项主要是为了修改设备的网络信息的
+                msSADP_DEV_NET_PARAM_JAVA.setSerialNO(new String(lpDeviceInfo.szSerialNO).trim());/*设备序列号*/
+                msSADP_DEV_NET_PARAM_JAVA.setMAC(new String(lpDeviceInfo.szMAC).trim());/*设备物理地址*/
+                msSADP_DEV_NET_PARAM_JAVA.setIPv4Address(new String(lpDeviceInfo.szIPv4Address ).trim());/* IPv4地址 */
+                msSADP_DEV_NET_PARAM_JAVA.setIPv4SubNetMask(new String(lpDeviceInfo.szIPv4SubnetMask ).trim());/* IPv4子网掩码 */
+                msSADP_DEV_NET_PARAM_JAVA.setIPv4Gateway(new String(lpDeviceInfo.szIPv4Gateway ).trim());/* IPv4网关 */
+                msSADP_DEV_NET_PARAM_JAVA.setIPv6Address(new String(lpDeviceInfo.szIPv6Address ).trim());/* IPv6地址 */
+                msSADP_DEV_NET_PARAM_JAVA.setIPv6Gateway(new String(lpDeviceInfo.szIPv6Gateway ).trim());/* IPv6网关 */
+                msSADP_DEV_NET_PARAM_JAVA.setPort(Integer.toString(lpDeviceInfo.dwPort ));/* 设备监听端口 */
+                msSADP_DEV_NET_PARAM_JAVA.setIPv6MaskLen(Byte.toString(lpDeviceInfo.byIPv6MaskLen)); /* IPv6掩码长度 */
+                msSADP_DEV_NET_PARAM_JAVA.setDhcpEnabled(Byte.toString(lpDeviceInfo.byDhcpEnabled)); /* DHCP使能：0- 禁用，1- 启用 */
+                msSADP_DEV_NET_PARAM_JAVA.setHttpPort(Integer.toString(lpDeviceInfo.wHttpPort)); /* Http端口 */
+                
+                //下面的数据主要是为了更新在线设备的信息的
+                msSADP_DEV_NET_PARAM_JAVA.setSzDevDesc(new String(lpDeviceInfo.szDevDesc).trim());
+                msSADP_DEV_NET_PARAM_JAVA.setSzDeviceSoftwareVersion(new String(lpDeviceInfo.szDeviceSoftwareVersion ).trim());
+                String Activated = Byte.toString(lpDeviceInfo.byActivated);
+                if (Activated.equals("0"))  msSADP_DEV_NET_PARAM_JAVA.setaSzActivated(sActivated);// "已激活"
+                else if (Activated.equals("1")) msSADP_DEV_NET_PARAM_JAVA.setaSzActivated(sNotActive);// "未激活"
+                msSADP_DEV_NET_PARAM_JAVA.setSzBootTime(new String(lpDeviceInfo.szBootTime).trim());
+                
+                switch (lpDeviceInfo.iResult){
+
+                        case Sadp.SADP_RESTART:	//设备重新启动
+                        case Sadp.SADP_ADD:	//新设备上线
+                                devOnLine(msSADP_DEV_NET_PARAM_JAVA);
+                                break;
+                        case Sadp.SADP_DEC:	//设备下线
+                                devOffLine(msSADP_DEV_NET_PARAM_JAVA);
+                                break;
+                        case Sadp.SADP_UPDATE:	//更新设备
+                		devUpdate(msSADP_DEV_NET_PARAM_JAVA);
+                                break;
+                        case Sadp.SADP_UPDATEFAIL:
+                                //AfxMessageBox("修改失败!");		
+                                break;
+                        default:
+                //		OutputDebugString("unknow result!\n");
+                                break;
+                
+                }
+                
+
+            }catch(Exception e)
+            {
+                TxtLogger.append(sFileName + "-->PDEVICE_FIND_CALLBACK", "invoke()","启动SADP在线设备搜索过程中，出现错误" + 
+                                "\r\n                       Exception:" + e.toString());   
+            }
+        }
+        /**
+            * 函数:      devOnLine
+            * 函数描述:  添加设备。
+        */
+        private void devOnLine(Sadp.SADP_DEV_NET_PARAM_JAVA msSADP_DEV_NET_PARAM_JAVA){
+                
+            try{
+                //先判断是否为已添加设备，检查一下是否重复插入
+                if (ifDevOnLine(msSADP_DEV_NET_PARAM_JAVA)) return;
+
+                //如果不是重复插入，则插入数据
+                list_SADP_DEV_NET_PARAM_JAVA.add(msSADP_DEV_NET_PARAM_JAVA);
+
+                Vector<String> newRow = new Vector<String>();
+                //{"IP", "设备类型", "主控版本 ", "安全状态", "服务端口", "开始时间", "是否已管理"，“序列号”};
+                newRow.add(msSADP_DEV_NET_PARAM_JAVA.getIPv4Address());
+                newRow.add(msSADP_DEV_NET_PARAM_JAVA.getSzDevDesc());
+                newRow.add(msSADP_DEV_NET_PARAM_JAVA.getSzDeviceSoftwareVersion());
+
+                newRow.add(msSADP_DEV_NET_PARAM_JAVA.getSzActivated());
+                newRow.add(msSADP_DEV_NET_PARAM_JAVA.getPort());
+                newRow.add(msSADP_DEV_NET_PARAM_JAVA.getSzBootTime());
+                
+                String szSerialNO = msSADP_DEV_NET_PARAM_JAVA.getSerialNO();//new String(lpDeviceInfo.szSerialNO).trim();
+                newRow.add(CommonParas.getIfManaged(szSerialNO,sFileName)?sYes:sNo);
+
+                newRow.add(szSerialNO);
+                deviceOnLineTableModel.getDataVector().add(newRow);
+                deviceOnLineTableModel.fireTableDataChanged();
+                jTableDeviceOnLine.repaint();
+
+                iOnLine ++;
+                jLabelOnLine.setText(MessageFormat.format(sOnLineNums , jTableDeviceOnLine.getRowCount()));//"在线设备("+  iOnLine + ")"
+            }catch(Exception e){
+                TxtLogger.append(sFileName + "-->PDEVICE_FIND_CALLBACK", "devOnLine()","SADP在线设备搜索回调函数中添加设备过程中，出现错误" + 
+                                "\r\n                       Exception:" + e.toString());   
+            }
+        }
+        /**
+            * 函数:      devOnLine
+            * 函数描述:  删除设备。
+        */
+        private void devOffLine(Sadp.SADP_DEV_NET_PARAM_JAVA msSADP_DEV_NET_PARAM_JAVA){
+            try{
+                for (int i=0;i<list_SADP_DEV_NET_PARAM_JAVA.size();i++){
+                    Sadp.SADP_DEV_NET_PARAM_JAVA SADP_DEV_NET_PARAM_JAVA2 = list_SADP_DEV_NET_PARAM_JAVA.get(i);
+                    if (SADP_DEV_NET_PARAM_JAVA2.getSerialNO().equals(msSADP_DEV_NET_PARAM_JAVA.getSerialNO())) {
+                        list_SADP_DEV_NET_PARAM_JAVA.remove(i);
+                    }
+                }
+                for (int i=0;i<deviceOnLineTableModel.getRowCount();i++){
+                    if (((String)deviceOnLineTableModel.getValueAt(i, 7)).equals(msSADP_DEV_NET_PARAM_JAVA.getSerialNO())){
+                        deviceOnLineTableModel.removeRow(i);
+                        deviceOnLineTableModel.fireTableDataChanged();                        
+                    }
+                }
+            }catch(Exception e)
+            {
+                TxtLogger.append(sFileName + "-->PDEVICE_FIND_CALLBACK", "devOffLine()","SADP在线设备搜索回调函数中删除设备过程中，出现错误" + 
+                                "\r\n                       Exception:" + e.toString());   
+            }
+        }
+        /**
+            * 函数:      devOnLine
+            * 函数描述:  更新设备。
+        */
+        private void devUpdate(Sadp.SADP_DEV_NET_PARAM_JAVA msSADP_DEV_NET_PARAM_JAVA){
+            try{
+                for (int i=0;i<list_SADP_DEV_NET_PARAM_JAVA.size();i++){
+                    Sadp.SADP_DEV_NET_PARAM_JAVA SADP_DEV_NET_PARAM_JAVA2 = list_SADP_DEV_NET_PARAM_JAVA.get(i);
+                    if (SADP_DEV_NET_PARAM_JAVA2.getSerialNO().equals(msSADP_DEV_NET_PARAM_JAVA.getSerialNO())) {
+                        SADP_DEV_NET_PARAM_JAVA2 = msSADP_DEV_NET_PARAM_JAVA;
+                    }
+                }
+                for (int i=0;i<deviceOnLineTableModel.getRowCount();i++){
+                    if (((String)deviceOnLineTableModel.getValueAt(i, 7)).equals(msSADP_DEV_NET_PARAM_JAVA.getSerialNO())){
+                        //{"IP0", "设备类型1", "主控版本 2", "安全状态3", "服务端口4", "开始时间5", "是否已管理6"，“序列号7”};
+                        deviceOnLineTableModel.setValueAt(msSADP_DEV_NET_PARAM_JAVA.getIPv4Address(), i, 0);
+                        deviceOnLineTableModel.setValueAt(msSADP_DEV_NET_PARAM_JAVA.getSzDevDesc(), i, 1);
+                        deviceOnLineTableModel.setValueAt(msSADP_DEV_NET_PARAM_JAVA.getSzDeviceSoftwareVersion(), i, 2);
+                        deviceOnLineTableModel.setValueAt(msSADP_DEV_NET_PARAM_JAVA.getSzActivated(), i, 3);
+                        deviceOnLineTableModel.setValueAt(msSADP_DEV_NET_PARAM_JAVA.getPort(), i, 4);
+                        deviceOnLineTableModel.setValueAt(msSADP_DEV_NET_PARAM_JAVA.getSzBootTime(), i, 5);
+                        String szSerialNO = msSADP_DEV_NET_PARAM_JAVA.getSerialNO();
+                        deviceOnLineTableModel.setValueAt(CommonParas.getIfManaged(szSerialNO,sFileName)?sYes:sNo, i, 6);
+                        deviceOnLineTableModel.setValueAt(szSerialNO, i, 7);
+                        deviceOnLineTableModel.fireTableDataChanged();
+                    }
+                }
+            }catch(Exception e)
+            {
+                TxtLogger.append(sFileName + "-->PDEVICE_FIND_CALLBACK", "devUpdate()","SADP在线设备搜索回调函数中更新设备过程中，出现错误" + 
+                                "\r\n                       Exception:" + e.toString());   
+            }
+        }
+        /**
+            *函数:      ifDevOnLine
+            *函数描述:  添加设备之前，判断是否该设备已经存在于列表中
+        */
+        private boolean ifDevOnLine(Sadp.SADP_DEV_NET_PARAM_JAVA msSADP_DEV_NET_PARAM_JAVA){
+            try{
+                for (int i=0;i<list_SADP_DEV_NET_PARAM_JAVA.size();i++){
+                    Sadp.SADP_DEV_NET_PARAM_JAVA SADP_DEV_NET_PARAM_JAVA2 = list_SADP_DEV_NET_PARAM_JAVA.get(i);
+                    if (SADP_DEV_NET_PARAM_JAVA2.getSerialNO().equals(msSADP_DEV_NET_PARAM_JAVA.getSerialNO())) return true;
+                }
+            }catch(Exception e)
+            {
+                TxtLogger.append(sFileName + "-->PDEVICE_FIND_CALLBACK", "ifDevOnLine()","启动SADP在线设备搜索过程中，出现错误" + 
+                                "\r\n                       Exception:" + e.toString());   
+            }
+            return false;
+        }
+    }
+    
+
+    
+    /**
+        *内部类:   deviceManagedTableRowSorter
+        *类描述:   对jTableDeviceManaged进行行过滤
+        *         自定义的deviceManagedTableRowSorter则可将JButton（刷新）排除在外
+    */  
+    class deviceManagedTableRowSorter extends TableRowSorter {
+        String sFilter;
+        public deviceManagedTableRowSorter(TableModel model,String sFilter){
+            super(model);
+            this.sFilter = sFilter;
+        }
+        /**
+            *内部类:   myFilter
+            *类描述:   重新定义了RowFilter中的include方法，则可将JButton（刷新）排除在外
+         */
+        class myFilter extends RowFilter{
+            @Override
+            public boolean include(RowFilter.Entry entry){
+                for (int i=0;i<(entry.getValueCount()-1);i++){
+                    if (entry.getStringValue(i).contains(sFilter)) 
+                        return true;
+                }
+                return false;
+            }
+        }
+    }
+    
+    /**
+        *内部类:   JTableButtonRenderer
+        *类描述:   对jTableDeviceManaged进行单元格渲染器
+    */     
+    class JTableButtonRenderer implements TableCellRenderer {
+        private TableCellRenderer MydefaultRenderer;
+
+        public JTableButtonRenderer(TableCellRenderer renderer) {
+            MydefaultRenderer = renderer;
+        }
+
+        @Override
+        public Component getTableCellRendererComponent(JTable table, Object value,
+            boolean isSelected, boolean hasFocus, int row, int column) {
+            if (value instanceof Component)
+                return (Component) value;
+            return MydefaultRenderer.getTableCellRendererComponent(table, value,isSelected, hasFocus, row, column);
+        }
+    }
+    /**
+        *内部类:   JTableButtonModel
+        *类描述:   jTableDeviceManaged的表格式数据模型DefaultTableModel
+    */  
+    class JTableButtonModel extends AbstractTableModel
+     {
+
+        private Vector Myrows = new Vector();
+        private String[] Mycolumns;
+
+        public JTableButtonModel(Object[] columnNames) {
+            Mycolumns = (String[])columnNames;
+        }
+
+        public Vector getDataVector(){
+            return Myrows;
+        }
+        public boolean addRow(Vector rowData) {
+           return Myrows.add(rowData);
+        } 
+        public void removeRow(int row) {
+           Myrows.removeElementAt(row);
+        }
+
+        @Override
+        public String getColumnName(int column) {
+         return Mycolumns[column];
+        }
+
+        @Override
+        public int getRowCount() {
+       //  return Myrows.length;
+         return Myrows.size();
+        }
+
+        @Override
+        public int getColumnCount() {
+         return Mycolumns.length;
+        }
+
+        @Override
+        public Object getValueAt(int row, int column) {
+       //  return Myrows[row][column];
+         return ((Vector)Myrows.elementAt(row)).elementAt(column);
+        }
+        
+        @Override
+        public void setValueAt(Object aValue, int rowIndex, int columnIndex) {
+            if (rowIndex < 0 || rowIndex > Myrows.size()-1 || columnIndex < 0 || columnIndex > Mycolumns.length-1) return;
+            ((Vector)Myrows.elementAt(rowIndex)).setElementAt(aValue, columnIndex);//.elementAt(columnIndex) = aValue;
+        }
+        
+        @Override
+        public boolean isCellEditable(int row, int column) {
+         return false;
+        }
+
+        @Override
+        public Class getColumnClass(int column) {
+         return getValueAt(0, column).getClass();
+        }
+    } 
+    /**
+        *内部类:   JTableButtonMouseListener
+        *类描述:   为jTableDeviceManaged的中的JButton（刷新）添加鼠标监听器
+    */  
+    class JTableButtonMouseListener implements MouseListener {
+        private JTable Mytable;
+
+        private void MyforwardEventToButton(MouseEvent e) {
+            
+            try{
+                TableColumnModel columnModel = Mytable.getColumnModel();
+                int column = columnModel.getColumnIndexAtX(e.getX());
+                int row = e.getY() / Mytable.getRowHeight();
+                Object value;
+                JButton button;
+                MouseEvent buttonEvent;
+
+                if (row >= Mytable.getRowCount() || row < 0 || column >= Mytable.getColumnCount() || column < 0)
+                    return;
+
+                value = Mytable.getValueAt(row, column);
+
+                if (!(value instanceof JButton))
+                    return;
+
+                button = (JButton) value;
+
+                buttonEvent = (MouseEvent) SwingUtilities.convertMouseEvent(Mytable, e,button);
+                button.dispatchEvent(buttonEvent);
+                if (buttonEvent.getButton() ==java.awt.event.MouseEvent.BUTTON1) {
+
+                    int iRowCount = deviceManagedTableModel.getRowCount();
+                    if (iRowCount == 0) return;
+                    if (listDeviceDetailPara == null) return;
+                    if (row<0 || row>listDeviceDetailPara.size()-1 || row>iRowCount) return;
+                    
+                    DeviceParaBean deviceparaBean = CommonParas.getDeviceParaBean(row, sFileName);//listDeviceparaBean.get(row);
+                    if (!(deviceManagedTableModel.getValueAt(row, 1).equals(deviceparaBean.getDVRIP()))) return;
+                    
+                    //刷新该管理设备
+                    refreshOneManagedWorker= new RefreshOneDeviceManagedWorker(row);
+                    refreshOneManagedWorker.execute();
+                    
+//                    HCNetSDK.NET_DVR_DEVICEINFO_V30 strDeviceInfo = null;
+//
+//                    NativeLong lUserID = CommonParas.getUserID(row, sFileName);//new NativeLong(-1);
+//                    if (lUserID.intValue() > -1) 
+//                        strDeviceInfo = CommonParas.getStrDeviceInfo(row, sFileName);//new HCNetSDK.NET_DVR_DEVICEINFO_V30();
+//
+//                    getOneDeviceWorkState(row,lUserID, strDeviceInfo);
+
+                }
+
+//                // This is necessary so that when a button is pressed and released
+//                // it gets rendered properly. Otherwise, the button may still appear
+//                // pressed down when it has been released.
+//                Mytable.repaint();
+            }catch(Exception ex){
+                TxtLogger.append(sFileName + "-->JTableButtonMouseListener", "MyforwardEventToButton()","系统在响应用户点击表中按钮的过程中，出现错误" + 
+                                "\r\n                       Exception:" + ex.toString());   
+            }
+        }
+
+        public JTableButtonMouseListener(JTable table) {
+            Mytable = table;
+        }
+
+        @Override
+        public void mouseClicked(MouseEvent e) {
+            MyforwardEventToButton(e);
+        }
+
+        @Override
+        public void mouseEntered(MouseEvent e) {}
+
+        @Override
+        public void mouseExited(MouseEvent e) {}
+
+        @Override
+        public void mousePressed(MouseEvent e) {}
+
+        @Override
+        public void mouseReleased(MouseEvent e) {}
+    }
+    /**
+        *类:      RefreshDeviceWorker
+        *类描述:  刷新管理设备状态和在线设备的并行线程类
+    */
+    private class RefreshDeviceWorker extends SwingWorker {
+
+        RefreshDeviceWorker(){
+            bDeviceRefreshing = true;//是否正在刷新设备状态
+            CommonParas.showProgressWindow(this);
+        }
+        @Override
+        protected Object doInBackground(){
+            //刷新管理设备
+            CommonParas.setPorgressInfo(sRefreshManagedDevs);// "刷新管理设备信息"
+            refreshDeviceManaged();
+            resizeTable(jScrollPaneMagaged,jTableDeviceManaged,true);
+
+            //刷新在线设备
+            CommonParas.setPorgressInfo(sRefreshOnLineDevs);// "刷新在线设备信息"
+            refreshDeviceOnLine();
+            resizeTable(jScrollPaneOnLine,jTableDeviceOnLine,true);
+            
+            return null;
+        }
+
+        @Override
+        protected void done(){
+            bDeviceRefreshing = false;//是否正在刷新设备状态
+            CommonParas.closeProgressWindow();
+        }
+    }
+    /**
+        *类:      RefreshDeviceManagedWorker
+        *类描述:  刷新管理设备状态的并行线程类
+    */
+    private class RefreshDeviceManagedWorker extends SwingWorker {
+
+        RefreshDeviceManagedWorker(){
+            bDeviceRefreshing = true;//是否正在刷新设备状态
+            CommonParas.showProgressWindow(this);
+        }
+        @Override
+        protected Object doInBackground(){
+            //刷新管理设备
+            CommonParas.setPorgressInfo(sRefreshManagedDevs);// "刷新管理设备信息"
+            refreshDeviceManaged();
+            resizeTable(jScrollPaneMagaged,jTableDeviceManaged,true);
+
+            return null;
+        }
+
+        @Override
+        protected void done(){
+            bDeviceRefreshing = false;//是否正在刷新设备状态
+            CommonParas.closeProgressWindow();
+        }
+    }
+    
+    /**
+        *类:      RefreshDeviceManagedWorker
+        *类描述:  刷新单个管理设备状态的并行线程类
+    */
+    private class RefreshOneDeviceManagedWorker extends SwingWorker {
+
+        private final int iRow;
+        RefreshOneDeviceManagedWorker(int Row){
+            bDeviceRefreshing = true;//是否正在刷新设备状态
+            iRow = Row;
+            CommonParas.showProgressWindow(this);
+            jTextFieldFilterManaged.setEnabled(false);
+            jButtonRegisterDevice.setEnabled(false);
+            jButtonDeleteManaged.setEnabled(false);
+            jButtonModify.setEnabled(false);
+            jButtonManagedRefresh.setEnabled(false);
+        }
+        @Override
+        protected Object doInBackground(){
+            //刷新管理设备
+            CommonParas.setPorgressInfo(MessageFormat.format(sRefreshOneDev , deviceManagedTableModel.getValueAt(iRow, 0)));//"刷新“"+deviceManagedTableModel.getValueAt(iRow, 0)+"”信息"
+            HCNetSDK.NET_DVR_DEVICEINFO_V30 strDeviceInfo = null;
+
+            NativeLong lUserID = CommonParas.getUserID(iRow, sFileName);//new NativeLong(-1);
+            if (lUserID.intValue() > -1) 
+                strDeviceInfo = CommonParas.getStrDeviceInfo(iRow, sFileName);//new HCNetSDK.NET_DVR_DEVICEINFO_V30();
+
+            getOneDeviceWorkState(iRow,lUserID, strDeviceInfo);
+
+            return null;
+        }
+
+        @Override
+        protected void done(){
+            bDeviceRefreshing = false;//是否正在刷新设备状态
+            CommonParas.closeProgressWindow();
+            jTextFieldFilterManaged.setEnabled(true);
+            jButtonRegisterDevice.setEnabled(true);
+            jButtonDeleteManaged.setEnabled(true);
+            jButtonModify.setEnabled(true);
+            jButtonManagedRefresh.setEnabled(true);
+        }
+    }
+    
+    /**
+        *类:      RefreshDeviceOnLineWorker
+        *类描述:  刷新在线设备的并行线程类
+    */
+    private class RefreshDeviceOnLineWorker extends SwingWorker {
+
+        RefreshDeviceOnLineWorker(){
+            bDeviceRefreshing = true;//是否正在刷新设备状态
+            CommonParas.showProgressWindow(this);
+            jTextFieldFilterOnLine.setEnabled(false);
+            jButtonInsertMagaged.setEnabled(false);
+            jButtonModifyOnLine.setEnabled(false);
+            jButtonModifyPass.setEnabled(false);
+            jButtonActive.setEnabled(false);
+            jButtonOnLineRefresh.setEnabled(false);
+        }
+        @Override
+        protected Object doInBackground(){
+            //刷新在线设备
+            CommonParas.setPorgressInfo(sRefreshOnLineDevs);// "刷新在线设备信息"
+            refreshDeviceOnLine();
+            resizeTable(jScrollPaneOnLine,jTableDeviceOnLine,true);
+
+            return null;
+        }
+
+        @Override
+        protected void done(){
+            bDeviceRefreshing = false;//是否正在刷新设备状态
+            CommonParas.closeProgressWindow();
+            jTextFieldFilterOnLine.setEnabled(true);
+            jButtonInsertMagaged.setEnabled(true);
+            jButtonModifyOnLine.setEnabled(true);
+            jButtonModifyPass.setEnabled(true);
+            jButtonActive.setEnabled(true);
+            jButtonOnLineRefresh.setEnabled(true);
+
+        }
+    }
+}
